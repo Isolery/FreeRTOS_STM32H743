@@ -3,8 +3,8 @@
 
 int main(void)
 {
-	HAL_Init();				        		//³õÊ¼»¯HAL¿â
-	Stm32_Clock_Init(160,5,2,4);  		    //ÉèÖÃÊ±ÖÓ,400Mhz 
+	HAL_Init();				        		//
+	Stm32_Clock_Init(160,5,2,4);  		    //æ—¶é’Ÿé¢‘çŽ‡å·¥ä½œåœ¨400Mhz 
 	USART6_Init(115200);
 	
 	printf("Hello World!\n");
