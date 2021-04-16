@@ -3,71 +3,35 @@
 #include "sys.h"
 #include "usart.h"
 
+void System_Init(void);
 static void AppTaskCreate(void);
+static void Task1_Entry(void* param);
+static void Task2_Entry(void* param);
 
 //创建任务句柄
-static TaskHandle_t AppTaskCreate_Handle;
-static TaskHandle_t Task1_Handle;
-
-//创建任务堆栈
-static StackType_t AppTaskCreate_Stack[128];
-static StackType_t Task1_Stack[128];
-static StackType_t Idle_Task_Stack[configMINIMAL_STACK_SIZE];
-static StackType_t Timer_Task_Stack[configTIMER_TASK_STACK_DEPTH];
-
-//创建任务控制块
-static StaticTask_t AppTaskCreate_TCB;
-static StaticTask_t Task1_TCB;
-static StaticTask_t Idle_Task_TCB;	
-static StaticTask_t Timer_Task_TCB;
-
-/*
- * 使用了静态分配内存，以下这两个函数是由用户实现，函数在task.c文件中有引用
- * 当且仅当 configSUPPORT_STATIC_ALLOCATION 这个宏定义为 1 的时候才有效
- */
-void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer, 
-									StackType_t **ppxTimerTaskStackBuffer, 
-									uint32_t *pulTimerTaskStackSize);
-
-void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, 
-								   StackType_t **ppxIdleTaskStackBuffer, 
-								   uint32_t *pulIdleTaskStackSize);
-
-static void Task1_Entry(void* param)
-{
-	for(;;)
-	{
-		printf("1\n");
-		vTaskDelay(500);
-		printf("2\n");
-		vTaskDelay(500);
-	}
-}
+static TaskHandle_t AppTaskCreate_Handle = NULL;
+static TaskHandle_t Task1_Handle = NULL;
+static TaskHandle_t Task2_Handle = NULL;
 
 int main(void)
 {
-	HAL_Init();				        		// 
-	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
-	USART6_Init(115200);
+	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
 	
-	printf("Hello World!\n");
+	System_Init();
 	
-	AppTaskCreate_Handle = xTaskCreateStatic((TaskFunction_t  )AppTaskCreate,           // 任务函数
-	                                 (const char*     )"AppTaskCreate",         // 任务名称
-								     (uint32_t        )128,                     // 任务堆栈大小
-									 (void*           )NULL,                    // 传递给任务函数的参数
-								     (UBaseType_t     )4,                       // 任务优先级
-									 (StackType_t*    )AppTaskCreate_Stack,     // 任务堆栈
-									 (StaticTask_t*   )&AppTaskCreate_TCB);     // 任务控制块
+	xReturn = xTaskCreate((TaskFunction_t  )AppTaskCreate,           // 任务函数
+	                      (const char*     )"AppTaskCreate",         // 任务名称
+						  (uint16_t        )512,                     // 任务堆栈大小
+						  (void*           )NULL,                    // 传递给任务函数的参数
+						  (UBaseType_t     )1,                       // 任务优先级
+						  (TaskHandle_t*   )&AppTaskCreate_Handle);  // 任务控制块指针
 	
-	
-	
-	if(AppTaskCreate_Handle != NULL)
+	if(pdPASS == xReturn)
 		vTaskStartScheduler();    // 开启任务调度
-
+	else
+		return -1;
+	
 	while(1);
-									 
-	return 0;
 }
 
 /***********************************************************************
@@ -78,64 +42,58 @@ int main(void)
   **********************************************************************/
 static void AppTaskCreate(void)
 {
+	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
+	
 	taskENTER_CRITICAL();           //进入临界区
 
 	/* 创建任务1 */
-	Task1_Handle = xTaskCreateStatic((TaskFunction_t  )Task1_Entry,     // 任务函数
-									 (const char*     )"Task1_Entry",   // 任务名称
-									 (uint32_t        )128,             // 任务堆栈大小
-									 (void*           )NULL,            // 传递给任务函数的参数
-									 (UBaseType_t     )4,               // 任务优先级
-									 (StackType_t*    )Task1_Stack,     // 任务堆栈
-									 (StaticTask_t*   )&Task1_TCB);     // 任务控制块  
+	xReturn = xTaskCreate((TaskFunction_t  )Task1_Entry,           // 任务函数
+	                      (const char*     )"Task1_Entry",         // 任务名称
+						  (uint16_t        )512,                   // 任务堆栈大小
+						  (void*           )NULL,                  // 传递给任务函数的参数
+						  (UBaseType_t     )2,                     // 任务优先级
+						  (TaskHandle_t*   )&Task1_Handle);        // 任务控制块指针  
 
-	if(NULL != Task1_Handle)               /* 创建成功 */
-	printf("Task1 Create Success...\n");
-	else
-	printf("Task1 Create Failure...\n");
+	if(pdPASS == xReturn)               
+		printf("Task1 Create Success...\n");
+	
+	/* 创建任务2 */
+	xReturn = xTaskCreate((TaskFunction_t  )Task2_Entry,           // 任务函数
+	                      (const char*     )"Task2_Entry",         // 任务名称
+						  (uint16_t        )512,                   // 任务堆栈大小
+						  (void*           )NULL,                  // 传递给任务函数的参数
+						  (UBaseType_t     )2,                     // 任务优先级
+						  (TaskHandle_t*   )&Task2_Handle);        // 任务控制块指针  
+
+	if(pdPASS == xReturn)               
+		printf("Task2 Create Success...\n");
 
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 
 	taskEXIT_CRITICAL();                  //退出临界区
 }
 
-/**
-  **********************************************************************
-  * @brief  获取空闲任务的任务堆栈和任务控制块内存
-	*					ppxTimerTaskTCBBuffer	:		任务控制块内存
-	*					ppxTimerTaskStackBuffer	:	任务堆栈内存
-	*					pulTimerTaskStackSize	:		任务堆栈大小
-  * @author  fire
-  * @version V1.0
-  * @date    2018-xx-xx
-  **********************************************************************
-  */ 
-void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, 
-								   StackType_t **ppxIdleTaskStackBuffer, 
-								   uint32_t *pulIdleTaskStackSize)
+static void Task1_Entry(void* param)
 {
-	*ppxIdleTaskTCBBuffer=&Idle_Task_TCB;/* 任务控制块内存 */
-	*ppxIdleTaskStackBuffer=Idle_Task_Stack;/* 任务堆栈内存 */
-	*pulIdleTaskStackSize=configMINIMAL_STACK_SIZE;/* 任务堆栈大小 */
+	for(;;)
+	{
+		printf("Task1 Running...\n");
+		vTaskDelay(100);    // 系统的时钟节拍设置为10ms中断一次，因此延时100个时钟节拍的时间是1s
+	}
 }
 
-/**
-  *********************************************************************
-  * @brief  获取定时器任务的任务堆栈和任务控制块内存
-	*					ppxTimerTaskTCBBuffer	:		任务控制块内存
-	*					ppxTimerTaskStackBuffer	:	任务堆栈内存
-	*					pulTimerTaskStackSize	:		任务堆栈大小
-  * @author  fire
-  * @version V1.0
-  * @date    2018-xx-xx
-  **********************************************************************
-  */ 
-void vApplicationGetTimerTaskMemory(StaticTask_t **ppxTimerTaskTCBBuffer, 
-									StackType_t **ppxTimerTaskStackBuffer, 
-									uint32_t *pulTimerTaskStackSize)
+static void Task2_Entry(void* param)
 {
-	*ppxTimerTaskTCBBuffer=&Timer_Task_TCB;/* 任务控制块内存 */
-	*ppxTimerTaskStackBuffer=Timer_Task_Stack;/* 任务堆栈内存 */
-	*pulTimerTaskStackSize=configTIMER_TASK_STACK_DEPTH;/* 任务堆栈大小 */
+	for(;;)
+	{
+		printf("Task2 Running...\n");
+		vTaskDelay(100);
+	}
 }
 
+void System_Init(void)
+{
+	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
+	USART6_Init(115200);
+	printf("============Start============\n");
+}
