@@ -52,7 +52,7 @@ int main(void)
 	
 	printf("Hello World!\n");
 	
-	Task1_Handle = xTaskCreateStatic((TaskFunction_t  )AppTaskCreate,           // 任务函数
+	AppTaskCreate_Handle = xTaskCreateStatic((TaskFunction_t  )AppTaskCreate,           // 任务函数
 	                                 (const char*     )"AppTaskCreate",         // 任务名称
 								     (uint32_t        )128,                     // 任务堆栈大小
 									 (void*           )NULL,                    // 传递给任务函数的参数
@@ -62,16 +62,8 @@ int main(void)
 	
 	
 	
-	if(Task1_Handle != NULL)
-	{
-		printf("Task1 Create Success...\n");
-	}	
-	else
-	{
-		printf("Task1 Create failue...\n");
-	}
-	
-	vTaskStartScheduler();    // 开启任务调度
+	if(AppTaskCreate_Handle != NULL)
+		vTaskStartScheduler();    // 开启任务调度
 
 	while(1);
 									 
@@ -97,14 +89,14 @@ static void AppTaskCreate(void)
 									 (StackType_t*    )Task1_Stack,     // 任务堆栈
 									 (StaticTask_t*   )&Task1_TCB);     // 任务控制块  
 
-	if(NULL != Task1_Handle)/* 创建成功 */
-	printf("LED_Task任务创建成功!\n");
+	if(NULL != Task1_Handle)               /* 创建成功 */
+	printf("Task1 Create Success...\n");
 	else
-	printf("LED_Task任务创建失败!\n");
+	printf("Task1 Create Failure...\n");
 
-	vTaskDelete(AppTaskCreate_Handle); //删除AppTaskCreate任务
+	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 
-	taskEXIT_CRITICAL();            //退出临界区
+	taskEXIT_CRITICAL();                  //退出临界区
 }
 
 /**

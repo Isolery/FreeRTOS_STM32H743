@@ -40,6 +40,9 @@
 /* Includes ------------------------------------------------------------------ */
 #include "stm32h7xx_it.h"
 #include "main.h"
+/* FreeRTOS头文件 */
+#include "FreeRTOS.h"
+#include "task.h"
 
 /** @addtogroup STM32H7xx_HAL_Applications
   * @{
