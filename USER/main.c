@@ -80,7 +80,9 @@ static void Task1_Entry(void* param)
 		printf("Task1 Running...\n");
 		vTaskSuspend(Task2_Handle);    // 挂起Task2
 		vTaskDelay(100);    // 系统的时钟节拍设置为10ms中断一次，因此延时100个时钟节拍的时间是1s
-		vTaskResume(Task2_Handle);     // 恢复Task2
+		vTaskResume(Task2_Handle);     // 恢复Task2, 该函数可以恢复已经删除的任务
+		
+		//vTaskDelete(Task2_Handle);
 	}
 }
 
@@ -89,9 +91,11 @@ static void Task2_Entry(void* param)
 	for(;;)
 	{
 		printf("Task2 Running...\n");
-		vTaskSuspend(Task1_Handle);    // 挂起Task1
+		//vTaskSuspend(Task1_Handle);    // 挂起Task1
 		vTaskDelay(100);
-		vTaskResume(Task1_Handle);     // 恢复Task1
+		//vTaskResume(Task1_Handle);     // 恢复Task1
+		
+		//vTaskDelete(NULL);
 	}
 }
 
