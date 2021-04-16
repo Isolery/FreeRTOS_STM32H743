@@ -4,80 +4,80 @@
 uint8_t rec_buf[1];
 uint16_t rec16[1];
 
-UART_HandleTypeDef UART1_Handler; //UART1¾ä±ú
-UART_HandleTypeDef UART2_Handler; //UART2¾ä±ú
-UART_HandleTypeDef UART3_Handler; //UART3¾ä±ú
-UART_HandleTypeDef UART6_Handler; //UART6¾ä±ú
+UART_HandleTypeDef UART1_Handler; //UART1å¥æŸ„
+UART_HandleTypeDef UART2_Handler; //UART2å¥æŸ„
+UART_HandleTypeDef UART3_Handler; //UART3å¥æŸ„
+UART_HandleTypeDef UART6_Handler; //UART6å¥æŸ„
 
 void USART1_Init(u32 bound)
 {
-    //UART ³õÊ¼»¯ÉèÖÃ
+    //UART åˆå§‹åŒ–è®¾ç½®
     UART1_Handler.Instance = USART1;                    //USART1
-    UART1_Handler.Init.BaudRate = bound;                //²¨ÌØÂÊ
-    UART1_Handler.Init.WordLength = UART_WORDLENGTH_8B; //×Ö³¤Îª8Î»Êý¾Ý¸ñÊ½
-    UART1_Handler.Init.StopBits = UART_STOPBITS_1;      //Ò»¸öÍ£Ö¹Î»
-    UART1_Handler.Init.Parity = UART_PARITY_NONE;       //ÎÞÆæÅ¼Ð£ÑéÎ»
-    UART1_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //ÎÞÓ²¼þÁ÷¿Ø
-    UART1_Handler.Init.Mode = UART_MODE_TX_RX;          //ÊÕ·¢Ä£Ê½
-    HAL_UART_Init(&UART1_Handler);                      //HAL_UART_Init()»áÊ¹ÄÜUART1
+    UART1_Handler.Init.BaudRate = bound;                //æ³¢ç‰¹çŽ‡
+    UART1_Handler.Init.WordLength = UART_WORDLENGTH_8B; //å­—é•¿ä¸º8ä½æ•°æ®æ ¼å¼
+    UART1_Handler.Init.StopBits = UART_STOPBITS_1;      //ä¸€ä¸ªåœæ­¢ä½
+    UART1_Handler.Init.Parity = UART_PARITY_NONE;       //æ— å¥‡å¶æ ¡éªŒä½
+    UART1_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //æ— ç¡¬ä»¶æµæŽ§
+    UART1_Handler.Init.Mode = UART_MODE_TX_RX;          //æ”¶å‘æ¨¡å¼
+    HAL_UART_Init(&UART1_Handler);                      //HAL_UART_Init()ä¼šä½¿èƒ½UART1
 
     HAL_UART_Receive_IT(&UART1_Handler, rec_buf, 1);
 }
 
 void USART2_Init(uint32_t bound)
 {
-    //UART ³õÊ¼»¯ÉèÖÃ
+    //UART åˆå§‹åŒ–è®¾ç½®
     UART2_Handler.Instance = USART2;                    //USART2
-    UART2_Handler.Init.BaudRate = bound;                //²¨ÌØÂÊ
-    UART2_Handler.Init.WordLength = UART_WORDLENGTH_8B; //×Ö³¤Îª8Î»Êý¾Ý¸ñÊ½
-    UART2_Handler.Init.StopBits = UART_STOPBITS_1;      //Ò»¸öÍ£Ö¹Î»
-    UART2_Handler.Init.Parity = UART_PARITY_NONE;       //ÎÞÆæÅ¼Ð£ÑéÎ»
-    UART2_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //ÎÞÓ²¼þÁ÷¿Ø
-    UART2_Handler.Init.Mode = UART_MODE_TX_RX;          //ÊÕ·¢Ä£Ê½
-    HAL_UART_Init(&UART2_Handler);                      //HAL_UART_Init()»áÊ¹ÄÜUART2
+    UART2_Handler.Init.BaudRate = bound;                //æ³¢ç‰¹çŽ‡
+    UART2_Handler.Init.WordLength = UART_WORDLENGTH_8B; //å­—é•¿ä¸º8ä½æ•°æ®æ ¼å¼
+    UART2_Handler.Init.StopBits = UART_STOPBITS_1;      //ä¸€ä¸ªåœæ­¢ä½
+    UART2_Handler.Init.Parity = UART_PARITY_NONE;       //æ— å¥‡å¶æ ¡éªŒä½
+    UART2_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //æ— ç¡¬ä»¶æµæŽ§
+    UART2_Handler.Init.Mode = UART_MODE_TX_RX;          //æ”¶å‘æ¨¡å¼
+    HAL_UART_Init(&UART2_Handler);                      //HAL_UART_Init()ä¼šä½¿èƒ½UART2
 
     HAL_UART_Receive_IT(&UART2_Handler, rec_buf, 1);
 }
 
 void USART3_Init(uint32_t bound)
 {
-    //UART ³õÊ¼»¯ÉèÖÃ
+    //UART åˆå§‹åŒ–è®¾ç½®
     UART3_Handler.Instance = USART3;                    //USART3
-    UART3_Handler.Init.BaudRate = bound;                //²¨ÌØÂÊ
-    UART3_Handler.Init.WordLength = UART_WORDLENGTH_8B; //×Ö³¤Îª8Î»Êý¾Ý¸ñÊ½
-    UART3_Handler.Init.StopBits = UART_STOPBITS_1;      //Ò»¸öÍ£Ö¹Î»
-    UART3_Handler.Init.Parity = UART_PARITY_NONE;       //ÎÞÆæÅ¼Ð£ÑéÎ»
-    UART3_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //ÎÞÓ²¼þÁ÷¿Ø
-    UART3_Handler.Init.Mode = UART_MODE_TX_RX;          //ÊÕ·¢Ä£Ê½
-    HAL_UART_Init(&UART3_Handler);                      //HAL_UART_Init()»áÊ¹ÄÜUART3
+    UART3_Handler.Init.BaudRate = bound;                //æ³¢ç‰¹çŽ‡
+    UART3_Handler.Init.WordLength = UART_WORDLENGTH_8B; //å­—é•¿ä¸º8ä½æ•°æ®æ ¼å¼
+    UART3_Handler.Init.StopBits = UART_STOPBITS_1;      //ä¸€ä¸ªåœæ­¢ä½
+    UART3_Handler.Init.Parity = UART_PARITY_NONE;       //æ— å¥‡å¶æ ¡éªŒä½
+    UART3_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //æ— ç¡¬ä»¶æµæŽ§
+    UART3_Handler.Init.Mode = UART_MODE_TX_RX;          //æ”¶å‘æ¨¡å¼
+    HAL_UART_Init(&UART3_Handler);                      //HAL_UART_Init()ä¼šä½¿èƒ½UART3
 
     HAL_UART_Receive_IT(&UART3_Handler, rec_buf, 1);
 }
 
 void USART6_Init(uint32_t bound)
 {
-    //UART ³õÊ¼»¯ÉèÖÃ
+    //UART åˆå§‹åŒ–è®¾ç½®
     UART6_Handler.Instance = USART6;                    //USART6
-    UART6_Handler.Init.BaudRate = bound;                //²¨ÌØÂÊ
-    UART6_Handler.Init.WordLength = UART_WORDLENGTH_8B; //×Ö³¤Îª8Î»Êý¾Ý¸ñÊ½
-    UART6_Handler.Init.StopBits = UART_STOPBITS_1;      //Ò»¸öÍ£Ö¹Î»
-    UART6_Handler.Init.Parity = UART_PARITY_NONE;       //ÎÞÆæÅ¼Ð£ÑéÎ»
-    UART6_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //ÎÞÓ²¼þÁ÷¿Ø
-    UART6_Handler.Init.Mode = UART_MODE_TX_RX;          //ÊÕ·¢Ä£Ê½
-    HAL_UART_Init(&UART6_Handler);                      //HAL_UART_Init()»áÊ¹ÄÜUART6
+    UART6_Handler.Init.BaudRate = bound;                //æ³¢ç‰¹çŽ‡
+    UART6_Handler.Init.WordLength = UART_WORDLENGTH_8B; //å­—é•¿ä¸º8ä½æ•°æ®æ ¼å¼
+    UART6_Handler.Init.StopBits = UART_STOPBITS_1;      //ä¸€ä¸ªåœæ­¢ä½
+    UART6_Handler.Init.Parity = UART_PARITY_NONE;       //æ— å¥‡å¶æ ¡éªŒä½
+    UART6_Handler.Init.HwFlowCtl = UART_HWCONTROL_NONE; //æ— ç¡¬ä»¶æµæŽ§
+    UART6_Handler.Init.Mode = UART_MODE_TX_RX;          //æ”¶å‘æ¨¡å¼
+    HAL_UART_Init(&UART6_Handler);                      //HAL_UART_Init()ä¼šä½¿èƒ½UART6
 
     HAL_UART_Receive_IT(&UART6_Handler, rec_buf, 1);
 
-    USART6->CR1 &= ~(1<<0);    //½ûÖ¹USART6
+    USART6->CR1 &= ~(1<<0);    //ç¦æ­¢USART6
 
-    USART6->CR1 |= (1<<11);    //WAKE: ½ÓÊÕÆ÷»½ÐÑ·½Ê½ ==> µØÖ·±ê¼Ç
-    USART6->CR2 &= ~0xFF000000;   //µØÖ·
+    USART6->CR1 |= (1<<11);    //WAKE: æŽ¥æ”¶å™¨å”¤é†’æ–¹å¼ ==> åœ°å€æ ‡è®°
+    USART6->CR2 &= ~0xFF000000;   //åœ°å€
     USART6->CR2 |= 0xC1000000;
-	USART6->CR2 |= (1<<4);    //7Î»µØÖ·¼ì²â
-    USART6->CR1 |= (1<<13);    //¾²Ä¬Ä£Ê½Ê¹ÄÜ
+	USART6->CR2 |= (1<<4);    //7ä½åœ°å€æ£€æµ‹
+    USART6->CR1 |= (1<<13);    //é™é»˜æ¨¡å¼ä½¿èƒ½
     USART6->RQR |= (1<<2);
 
-    USART6->CR1 |= (1<<0);    //Ê¹ÄÜUSART6
+    USART6->CR1 |= (1<<0);    //ä½¿èƒ½USART6
 
     // printf("USART6->CR1 = 0x%X\n", USART6->CR1);
     // printf("USART6->CR2 = 0x%X\n", USART6->CR2);
@@ -89,87 +89,87 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 {
     GPIO_InitTypeDef GPIO_InitSturct;
 
-    if (huart->Instance == USART1) //Èç¹ûÊÇ´®¿Ú1£¬½øÐÐ´®¿Ú1 MSP³õÊ¼»¯
+    if (huart->Instance == USART1) //å¦‚æžœæ˜¯ä¸²å£1ï¼Œè¿›è¡Œä¸²å£1 MSPåˆå§‹åŒ–
     {
-        __HAL_RCC_GPIOB_CLK_ENABLE();  //Ê¹ÄÜGPIOBÊ±ÖÓ
-        __HAL_RCC_USART1_CLK_ENABLE(); //Ê¹ÄÜUSART1Ê±ÖÓ
+        __HAL_RCC_GPIOB_CLK_ENABLE();  //ä½¿èƒ½GPIOBæ—¶é’Ÿ
+        __HAL_RCC_USART1_CLK_ENABLE(); //ä½¿èƒ½USART1æ—¶é’Ÿ
 
         GPIO_InitSturct.Pin = GPIO_PIN_14;             //PB14
-        GPIO_InitSturct.Mode = GPIO_MODE_AF_PP;       //¸´ÓÃÍÆÍìÊä³ö
-        GPIO_InitSturct.Pull = GPIO_PULLUP;           //ÉÏÀ­
-        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //¸ßËÙ
-        GPIO_InitSturct.Alternate = GPIO_AF4_USART1;  //¸´ÓÃÎªUSART1
-        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct);       //³õÊ¼»¯PB14
+        GPIO_InitSturct.Mode = GPIO_MODE_AF_PP;       //å¤ç”¨æŽ¨æŒ½è¾“å‡º
+        GPIO_InitSturct.Pull = GPIO_PULLUP;           //ä¸Šæ‹‰
+        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //é«˜é€Ÿ
+        GPIO_InitSturct.Alternate = GPIO_AF4_USART1;  //å¤ç”¨ä¸ºUSART1
+        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct);       //åˆå§‹åŒ–PB14
 
         GPIO_InitSturct.Pin = GPIO_PIN_15;      //PB15
-        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct); //³õÊ¼»¯PB15
+        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct); //åˆå§‹åŒ–PB15
 
 #if EN_USART1_RX
-        HAL_NVIC_EnableIRQ(USART1_IRQn);         //Ê¹ÄÜUSART1ÖÐ¶ÏÍ¨µÀ
-        HAL_NVIC_SetPriority(USART1_IRQn, 1, 1); //ÇÀÕ¼ÓÅÏÈ¼¶1£¬×ÓÓÅÏÈ¼¶1
+        HAL_NVIC_EnableIRQ(USART1_IRQn);         //ä½¿èƒ½USART1ä¸­æ–­é€šé“
+        HAL_NVIC_SetPriority(USART1_IRQn, 1, 1); //æŠ¢å ä¼˜å…ˆçº§1ï¼Œå­ä¼˜å…ˆçº§1
 #endif
     }
 
-    if (huart->Instance == USART2) //Èç¹ûÊÇ´®¿Ú2£¬½øÐÐ´®¿Ú2 MSP³õÊ¼»¯
+    if (huart->Instance == USART2) //å¦‚æžœæ˜¯ä¸²å£2ï¼Œè¿›è¡Œä¸²å£2 MSPåˆå§‹åŒ–
     {
-        __HAL_RCC_GPIOA_CLK_ENABLE();  //Ê¹ÄÜGPIOAÊ±ÖÓ
-        __HAL_RCC_USART2_CLK_ENABLE(); //Ê¹ÄÜUSART2Ê±ÖÓ
+        __HAL_RCC_GPIOA_CLK_ENABLE();  //ä½¿èƒ½GPIOAæ—¶é’Ÿ
+        __HAL_RCC_USART2_CLK_ENABLE(); //ä½¿èƒ½USART2æ—¶é’Ÿ
 
         GPIO_InitSturct.Pin = GPIO_PIN_2;             //PA2
-        GPIO_InitSturct.Mode = GPIO_MODE_AF_PP;       //¸´ÓÃÍÆÍìÊä³ö
-        GPIO_InitSturct.Pull = GPIO_PULLUP;           //ÉÏÀ­
-        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //¸ßËÙ
-        GPIO_InitSturct.Alternate = GPIO_AF7_USART2;  //¸´ÓÃÎªUSART2
-        HAL_GPIO_Init(GPIOA, &GPIO_InitSturct);       //³õÊ¼»¯PA2
+        GPIO_InitSturct.Mode = GPIO_MODE_AF_PP;       //å¤ç”¨æŽ¨æŒ½è¾“å‡º
+        GPIO_InitSturct.Pull = GPIO_PULLUP;           //ä¸Šæ‹‰
+        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //é«˜é€Ÿ
+        GPIO_InitSturct.Alternate = GPIO_AF7_USART2;  //å¤ç”¨ä¸ºUSART2
+        HAL_GPIO_Init(GPIOA, &GPIO_InitSturct);       //åˆå§‹åŒ–PA2
 
         GPIO_InitSturct.Pin = GPIO_PIN_3;       //PA3
-        HAL_GPIO_Init(GPIOA, &GPIO_InitSturct); //³õÊ¼»¯PA3
+        HAL_GPIO_Init(GPIOA, &GPIO_InitSturct); //åˆå§‹åŒ–PA3
 
 #if EN_USART2_RX
-        HAL_NVIC_EnableIRQ(USART2_IRQn);         //Ê¹ÄÜUSART2ÖÐ¶ÏÍ¨µÀ
-        HAL_NVIC_SetPriority(USART2_IRQn, 3, 3); //ÇÀÕ¼ÓÅÏÈ¼¶3£¬×ÓÓÅÏÈ¼¶3
+        HAL_NVIC_EnableIRQ(USART2_IRQn);         //ä½¿èƒ½USART2ä¸­æ–­é€šé“
+        HAL_NVIC_SetPriority(USART2_IRQn, 3, 3); //æŠ¢å ä¼˜å…ˆçº§3ï¼Œå­ä¼˜å…ˆçº§3
 #endif
     }
 
-    if (huart->Instance == USART3) //Èç¹ûÊÇ´®¿Ú3£¬½øÐÐ´®¿Ú3 MSP³õÊ¼»¯
+    if (huart->Instance == USART3) //å¦‚æžœæ˜¯ä¸²å£3ï¼Œè¿›è¡Œä¸²å£3 MSPåˆå§‹åŒ–
     {
-        __HAL_RCC_GPIOB_CLK_ENABLE();  //Ê¹ÄÜGPIOBÊ±ÖÓ
-        __HAL_RCC_USART3_CLK_ENABLE(); //Ê¹ÄÜUSART3Ê±ÖÓ
+        __HAL_RCC_GPIOB_CLK_ENABLE();  //ä½¿èƒ½GPIOBæ—¶é’Ÿ
+        __HAL_RCC_USART3_CLK_ENABLE(); //ä½¿èƒ½USART3æ—¶é’Ÿ
 
         GPIO_InitSturct.Pin = GPIO_PIN_10;             //PB10
-        GPIO_InitSturct.Mode = GPIO_MODE_AF_PP;       //¸´ÓÃÍÆÍìÊä³ö
-        GPIO_InitSturct.Pull = GPIO_PULLUP;           //ÉÏÀ­
-        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //¸ßËÙ
-        GPIO_InitSturct.Alternate = GPIO_AF7_USART3;  //¸´ÓÃÎªUSART3
-        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct);       //³õÊ¼»¯PB10
+        GPIO_InitSturct.Mode = GPIO_MODE_AF_PP;       //å¤ç”¨æŽ¨æŒ½è¾“å‡º
+        GPIO_InitSturct.Pull = GPIO_PULLUP;           //ä¸Šæ‹‰
+        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //é«˜é€Ÿ
+        GPIO_InitSturct.Alternate = GPIO_AF7_USART3;  //å¤ç”¨ä¸ºUSART3
+        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct);       //åˆå§‹åŒ–PB10
 
         GPIO_InitSturct.Pin = GPIO_PIN_11;       //PB11
-        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct); //³õÊ¼»¯PB11
+        HAL_GPIO_Init(GPIOB, &GPIO_InitSturct); //åˆå§‹åŒ–PB11
 
 #if EN_USART3_RX
-        HAL_NVIC_EnableIRQ(USART3_IRQn);         //Ê¹ÄÜUSART2ÖÐ¶ÏÍ¨µÀ
-        HAL_NVIC_SetPriority(USART3_IRQn, 3, 3); //ÇÀÕ¼ÓÅÏÈ¼¶3£¬×ÓÓÅÏÈ¼¶3
+        HAL_NVIC_EnableIRQ(USART3_IRQn);         //ä½¿èƒ½USART2ä¸­æ–­é€šé“
+        HAL_NVIC_SetPriority(USART3_IRQn, 3, 3); //æŠ¢å ä¼˜å…ˆçº§3ï¼Œå­ä¼˜å…ˆçº§3
 #endif
     }
 
-    if (huart->Instance == USART6) //Èç¹ûÊÇ´®¿Ú6£¬½øÐÐ´®¿Ú6 MSP³õÊ¼»¯
+    if (huart->Instance == USART6) //å¦‚æžœæ˜¯ä¸²å£6ï¼Œè¿›è¡Œä¸²å£6 MSPåˆå§‹åŒ–
     {
-        __HAL_RCC_GPIOC_CLK_ENABLE();  //Ê¹ÄÜGPIOCÊ±ÖÓ
-        __HAL_RCC_USART6_CLK_ENABLE(); //Ê¹ÄÜUSART6Ê±ÖÓ
+        __HAL_RCC_GPIOC_CLK_ENABLE();  //ä½¿èƒ½GPIOCæ—¶é’Ÿ
+        __HAL_RCC_USART6_CLK_ENABLE(); //ä½¿èƒ½USART6æ—¶é’Ÿ
 
         GPIO_InitSturct.Pin = GPIO_PIN_6;             //PC6
-        GPIO_InitSturct.Mode = GPIO_MODE_AF_OD;       //¸´ÓÃÍÆÍìÊä³ö
-        //GPIO_InitSturct.Pull = GPIO_PULLUP;           //ÉÏÀ­
-        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //¸ßËÙ
-        GPIO_InitSturct.Alternate = GPIO_AF7_USART3;  //¸´ÓÃÎªUSART6
-        HAL_GPIO_Init(GPIOC, &GPIO_InitSturct);       //³õÊ¼»¯PC6
+        GPIO_InitSturct.Mode = GPIO_MODE_AF_OD;       //å¤ç”¨æŽ¨æŒ½è¾“å‡º
+        //GPIO_InitSturct.Pull = GPIO_PULLUP;           //ä¸Šæ‹‰
+        GPIO_InitSturct.Speed = GPIO_SPEED_FREQ_HIGH; //é«˜é€Ÿ
+        GPIO_InitSturct.Alternate = GPIO_AF7_USART3;  //å¤ç”¨ä¸ºUSART6
+        HAL_GPIO_Init(GPIOC, &GPIO_InitSturct);       //åˆå§‹åŒ–PC6
 
         GPIO_InitSturct.Pin = GPIO_PIN_7;       //PC7
-        HAL_GPIO_Init(GPIOC, &GPIO_InitSturct); //³õÊ¼»¯PC7
+        HAL_GPIO_Init(GPIOC, &GPIO_InitSturct); //åˆå§‹åŒ–PC7
 
 #if EN_USART6_RX
-        HAL_NVIC_EnableIRQ(USART6_IRQn);         //Ê¹ÄÜUSART2ÖÐ¶ÏÍ¨µÀ
-        HAL_NVIC_SetPriority(USART6_IRQn, 3, 3); //ÇÀÕ¼ÓÅÏÈ¼¶3£¬×ÓÓÅÏÈ¼¶3
+        HAL_NVIC_EnableIRQ(USART6_IRQn);         //ä½¿èƒ½USART2ä¸­æ–­é€šé“
+        HAL_NVIC_SetPriority(USART6_IRQn, 3, 3); //æŠ¢å ä¼˜å…ˆçº§3ï¼Œå­ä¼˜å…ˆçº§3
 #endif
     }
 
@@ -181,21 +181,21 @@ void USART1_IRQHandler(void)
 	
 	//printf("USART1_IRQHandler\n");
 
-    HAL_UART_IRQHandler(&UART1_Handler); //µ÷ÓÃHAL¿âÖÐ¶Ï´¦Àí¹«ÓÃº¯Êý
+    HAL_UART_IRQHandler(&UART1_Handler); //è°ƒç”¨HALåº“ä¸­æ–­å¤„ç†å…¬ç”¨å‡½æ•°
 
     timeout = 0;
 
-    while (HAL_UART_GetState(&UART1_Handler) != HAL_UART_STATE_READY) //µÈ´ý¾ÍÐ÷
+    while (HAL_UART_GetState(&UART1_Handler) != HAL_UART_STATE_READY) //ç­‰å¾…å°±ç»ª
     {
-        timeout++; ////³¬Ê±´¦Àí
+        timeout++; ////è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
 
     timeout = 0;
-    while (HAL_UART_Receive_IT(&UART1_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //Ò»´Î´¦ÀíÍê³ÉÖ®ºó£¬ÖØÐÂ¿ªÆôÖÐ¶Ï²¢ÉèÖÃRxXferCountÎª1
+    while (HAL_UART_Receive_IT(&UART1_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //ä¸€æ¬¡å¤„ç†å®Œæˆä¹‹åŽï¼Œé‡æ–°å¼€å¯ä¸­æ–­å¹¶è®¾ç½®RxXferCountä¸º1
     {
-        timeout++; //³¬Ê±´¦Àí
+        timeout++; //è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
@@ -207,21 +207,21 @@ void USART2_IRQHandler(void)
 
     //printf("USART2_IRQHandler\n");
 
-    HAL_UART_IRQHandler(&UART2_Handler); //µ÷ÓÃHAL¿âÖÐ¶Ï´¦Àí¹«ÓÃº¯Êý
+    HAL_UART_IRQHandler(&UART2_Handler); //è°ƒç”¨HALåº“ä¸­æ–­å¤„ç†å…¬ç”¨å‡½æ•°
 
     timeout = 0;
 
-    while (HAL_UART_GetState(&UART2_Handler) != HAL_UART_STATE_READY) //µÈ´ý¾ÍÐ÷
+    while (HAL_UART_GetState(&UART2_Handler) != HAL_UART_STATE_READY) //ç­‰å¾…å°±ç»ª
     {
-        timeout++; ////³¬Ê±´¦Àí
+        timeout++; ////è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
 
     timeout = 0;
-    while (HAL_UART_Receive_IT(&UART2_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //Ò»´Î´¦ÀíÍê³ÉÖ®ºó£¬ÖØÐÂ¿ªÆôÖÐ¶Ï²¢ÉèÖÃRxXferCountÎª1
+    while (HAL_UART_Receive_IT(&UART2_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //ä¸€æ¬¡å¤„ç†å®Œæˆä¹‹åŽï¼Œé‡æ–°å¼€å¯ä¸­æ–­å¹¶è®¾ç½®RxXferCountä¸º1
     {
-        timeout++; //³¬Ê±´¦Àí
+        timeout++; //è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
@@ -231,21 +231,21 @@ void USART3_IRQHandler(void)
 {
     uint32_t timeout = 0;
 
-    HAL_UART_IRQHandler(&UART3_Handler); //µ÷ÓÃHAL¿âÖÐ¶Ï´¦Àí¹«ÓÃº¯Êý
+    HAL_UART_IRQHandler(&UART3_Handler); //è°ƒç”¨HALåº“ä¸­æ–­å¤„ç†å…¬ç”¨å‡½æ•°
 
     timeout = 0;
 
-    while (HAL_UART_GetState(&UART3_Handler) != HAL_UART_STATE_READY) //µÈ´ý¾ÍÐ÷
+    while (HAL_UART_GetState(&UART3_Handler) != HAL_UART_STATE_READY) //ç­‰å¾…å°±ç»ª
     {
-        timeout++; ////³¬Ê±´¦Àí
+        timeout++; ////è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
 
     timeout = 0;
-    while (HAL_UART_Receive_IT(&UART3_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //Ò»´Î´¦ÀíÍê³ÉÖ®ºó£¬ÖØÐÂ¿ªÆôÖÐ¶Ï²¢ÉèÖÃRxXferCountÎª1
+    while (HAL_UART_Receive_IT(&UART3_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //ä¸€æ¬¡å¤„ç†å®Œæˆä¹‹åŽï¼Œé‡æ–°å¼€å¯ä¸­æ–­å¹¶è®¾ç½®RxXferCountä¸º1
     {
-        timeout++; //³¬Ê±´¦Àí
+        timeout++; //è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
@@ -257,21 +257,21 @@ void USART6_IRQHandler(void)
 	
 	//printf("USART6_IRQHandler\n");
 
-    HAL_UART_IRQHandler(&UART6_Handler); //µ÷ÓÃHAL¿âÖÐ¶Ï´¦Àí¹«ÓÃº¯Êý
+    HAL_UART_IRQHandler(&UART6_Handler); //è°ƒç”¨HALåº“ä¸­æ–­å¤„ç†å…¬ç”¨å‡½æ•°
 
     timeout = 0;
 
-    while (HAL_UART_GetState(&UART6_Handler) != HAL_UART_STATE_READY) //µÈ´ý¾ÍÐ÷
+    while (HAL_UART_GetState(&UART6_Handler) != HAL_UART_STATE_READY) //ç­‰å¾…å°±ç»ª
     {
-        timeout++; ////³¬Ê±´¦Àí
+        timeout++; ////è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
 
     timeout = 0;
-    while (HAL_UART_Receive_IT(&UART6_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //Ò»´Î´¦ÀíÍê³ÉÖ®ºó£¬ÖØÐÂ¿ªÆôÖÐ¶Ï²¢ÉèÖÃRxXferCountÎª1
+    while (HAL_UART_Receive_IT(&UART6_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //ä¸€æ¬¡å¤„ç†å®Œæˆä¹‹åŽï¼Œé‡æ–°å¼€å¯ä¸­æ–­å¹¶è®¾ç½®RxXferCountä¸º1
     {
-        timeout++; //³¬Ê±´¦Àí
+        timeout++; //è¶…æ—¶å¤„ç†
         if (timeout > HAL_MAX_DELAY)
             break;
     }
@@ -283,21 +283,21 @@ void USART2_TransmitString(const char *cString)
     {
         USART2->TDR = *cString++;
         while ((USART2->ISR & 0X40) == 0)
-            ; //µÈ´ý·¢ËÍ½áÊø
+            ; //ç­‰å¾…å‘é€ç»“æŸ
     }
 }
 
 void USART3_TransmitArray(const uint8_t *Array, uint8_t len, uint8_t addr)
 {
-    USART3->TDR = addr | 0x100;    //µÚ9Î»Îª1±íÊ¾µØÖ·
+    USART3->TDR = addr | 0x100;    //ç¬¬9ä½ä¸º1è¡¨ç¤ºåœ°å€
     while ((USART3->ISR & 0X40) == 0)
-            ; //µÈ´ý·¢ËÍ½áÊø
+            ; //ç­‰å¾…å‘é€ç»“æŸ
     
     while(len--)
     {
         USART3->TDR = *Array++;
         while ((USART3->ISR & 0X40) == 0)
-            ; //µÈ´ý·¢ËÍ½áÊø
+            ; //ç­‰å¾…å‘é€ç»“æŸ
     }
 }
 
@@ -307,29 +307,29 @@ void USART6_TransmitArray(const uint8_t *Array, uint8_t len)
     {
         USART6->TDR = *Array++;
         while ((USART6->ISR & 0X40) == 0)
-            ; //µÈ´ý·¢ËÍ½áÊø
+            ; //ç­‰å¾…å‘é€ç»“æŸ
     }
 }
 
 
 #pragma import(__use_no_semihosting)
-//±ê×¼¿âÐèÒªµÄÖ§³Öº¯Êý
+//æ ‡å‡†åº“éœ€è¦çš„æ”¯æŒå‡½æ•°
 struct __FILE
 {
     int handle;
 };
 
 FILE __stdout;
-//¶¨Òå_sys_exit()ÒÔ±ÜÃâÊ¹ÓÃ°ëÖ÷»úÄ£Ê½
+//å®šä¹‰_sys_exit()ä»¥é¿å…ä½¿ç”¨åŠä¸»æœºæ¨¡å¼
 void _sys_exit(int x)
 {
     x = x;
 }
-//ÖØ¶¨Òåfputcº¯Êý
+//é‡å®šä¹‰fputcå‡½æ•°
 int fputc(int ch, FILE *f)
 {
     while ((USART6->ISR & 0X40) == 0)
-        ; //Ñ­»··¢ËÍ,Ö±µ½·¢ËÍÍê±Ï
+        ; //å¾ªçŽ¯å‘é€,ç›´åˆ°å‘é€å®Œæ¯•
     USART6->TDR = (uint8_t)ch;
     return ch;
 }
