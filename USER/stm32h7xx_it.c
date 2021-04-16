@@ -149,9 +149,18 @@ void DebugMon_Handler(void)
   * @param  None
   * @retval None
   */
+extern void xPortSysTickHandler(void);
+//systick中断服务函数
 void SysTick_Handler(void)
-{
-  HAL_IncTick();
+{	
+    #if (INCLUDE_xTaskGetSchedulerState  == 1 )
+      if (xTaskGetSchedulerState() != taskSCHEDULER_NOT_STARTED)
+      {
+    #endif  /* INCLUDE_xTaskGetSchedulerState */  
+        xPortSysTickHandler();
+    #if (INCLUDE_xTaskGetSchedulerState  == 1 )
+      }
+    #endif  /* INCLUDE_xTaskGetSchedulerState */
 }
 
 
