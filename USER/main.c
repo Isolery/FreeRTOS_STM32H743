@@ -62,7 +62,7 @@ static void AppTaskCreate(void)
 	                      (const char*     )"Task2_Entry",         // 任务名称
 						  (uint16_t        )512,                   // 任务堆栈大小
 						  (void*           )NULL,                  // 传递给任务函数的参数
-						  (UBaseType_t     )2,                     // 任务优先级
+						  (UBaseType_t     )3,                     // 任务优先级
 						  (TaskHandle_t*   )&Task2_Handle);        // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
@@ -78,16 +78,26 @@ static void Task1_Entry(void* param)
 	for(;;)
 	{
 		printf("Task1 Running...\n");
+		vTaskSuspend(Task2_Handle);    // 挂起Task2
 		vTaskDelay(100);    // 系统的时钟节拍设置为10ms中断一次，因此延时100个时钟节拍的时间是1s
+		vTaskResume(Task2_Handle);     // 恢复Task2, 该函数可以恢复已经删除的任务
+		
+		//vTaskDelete(Task2_Handle);
 	}
 }
 
 static void Task2_Entry(void* param)
 {
+	static portTickType PreviousWakeTime;
+	const portTickType TimeInncrement = pdMS_TO_TICKS(10);
+	
+	PreviousWakeTime = xTaskGetTickCount();
+	
 	for(;;)
 	{
 		printf("Task2 Running...\n");
-		vTaskDelay(100);
+//		vTaskDelay(10);
+		vTaskDelayUntil(&PreviousWakeTime, TimeInncrement);
 	}
 }
 
