@@ -17,7 +17,7 @@ static TaskHandle_t Send_Task_Handle = NULL;
 //创建消息队列句柄
 QueueHandle_t Test_Queue = NULL;
 
-#define  QUEUE_LEN    4   /* 队列的长度，最大可包含多少个消息 */
+#define  QUEUE_LEN    100   /* 队列的长度，最大可包含多少个消息 */
 #define  QUEUE_SIZE   4   /* 队列中每个消息大小（字节） */
 
 int main(void)
@@ -94,6 +94,7 @@ static void Receive_Task(void* param)
 	
 	for(;;)
 	{
+		//printf("Receive_Task is running...\n");
 		xReturn = xQueueReceive(Test_Queue,      /* 消息队列的句柄 */
 							    &recv_data,		 /* 接收的消息内容 */
 								portMAX_DELAY);  /* 等待时间一直等 */
@@ -103,7 +104,7 @@ static void Receive_Task(void* param)
 		else
 			printf("Data receive error...\n");
 		
-		vTaskDelay(100);
+		vTaskDelay(1);
 	}
 }
 
@@ -111,6 +112,8 @@ static void Send_Task(void* param)
 {
 	BaseType_t xReturn = pdPASS;
 	uint32_t send_data = 1;
+	
+	vTaskSuspend(Receive_Task_Handle);  
 	
 	for(;;)
 	{
@@ -125,7 +128,14 @@ static void Send_Task(void* param)
 		
 		send_data++;
 		
-		vTaskDelay(10);
+		if(send_data == 100)
+		{
+			vTaskResume(Receive_Task_Handle); 
+			vTaskSuspend(Send_Task_Handle);  
+			printf("Resume Receive Task...\n");
+		}
+
+		vTaskDelay(1);
 	}
 }
 
