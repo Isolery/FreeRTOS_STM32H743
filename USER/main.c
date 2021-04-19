@@ -1,17 +1,24 @@
 #include "FreeRTOS.h"
 #include "task.h"
+#include "queue.h"
 #include "sys.h"
 #include "usart.h"
 
 void System_Init(void);
 static void AppTaskCreate(void);
-static void Task1_Entry(void* param);
-static void Task2_Entry(void* param);
+static void Receive_Task(void* param);
+static void Send_Task(void* param);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
-static TaskHandle_t Task1_Handle = NULL;
-static TaskHandle_t Task2_Handle = NULL;
+static TaskHandle_t Receive_Task_Handle = NULL;
+static TaskHandle_t Send_Task_Handle = NULL;
+
+//创建消息队列句柄
+QueueHandle_t Test_Queue = NULL;
+
+#define  QUEUE_LEN    4   /* 队列的长度，最大可包含多少个消息 */
+#define  QUEUE_SIZE   4   /* 队列中每个消息大小（字节） */
 
 int main(void)
 {
@@ -46,58 +53,79 @@ static void AppTaskCreate(void)
 	
 	taskENTER_CRITICAL();           //进入临界区
 
-	/* 创建任务1 */
-	xReturn = xTaskCreate((TaskFunction_t  )Task1_Entry,           // 任务函数
-	                      (const char*     )"Task1_Entry",         // 任务名称
-						  (uint16_t        )512,                   // 任务堆栈大小
-						  (void*           )NULL,                  // 传递给任务函数的参数
-						  (UBaseType_t     )2,                     // 任务优先级
-						  (TaskHandle_t*   )&Task1_Handle);        // 任务控制块指针  
+	/* 创建消息队列Queue */
+	Test_Queue = xQueueCreate((UBaseType_t) QUEUE_LEN,    // 消息队列的长度
+							  (UBaseType_t) QUEUE_SIZE);  // 消息的大小
+	
+	if(Test_Queue != NULL)
+		printf("Create Test_Queue Success...\n");
+	
+	/* 创建Receive_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )Receive_Task,           // 任务函数
+	                      (const char*     )"Receive_Task",         // 任务名称
+						  (uint16_t        )512,                    // 任务堆栈大小
+						  (void*           )NULL,                   // 传递给任务函数的参数
+						  (UBaseType_t     )2,                      // 任务优先级
+						  (TaskHandle_t*   )&Receive_Task_Handle);  // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
-		printf("Task1 Create Success...\n");
+		printf("Receive_Task Create Success...\n");
 	
 	/* 创建任务2 */
-	xReturn = xTaskCreate((TaskFunction_t  )Task2_Entry,           // 任务函数
-	                      (const char*     )"Task2_Entry",         // 任务名称
-						  (uint16_t        )512,                   // 任务堆栈大小
-						  (void*           )NULL,                  // 传递给任务函数的参数
-						  (UBaseType_t     )3,                     // 任务优先级
-						  (TaskHandle_t*   )&Task2_Handle);        // 任务控制块指针  
+	xReturn = xTaskCreate((TaskFunction_t  )Send_Task,           // 任务函数
+	                      (const char*     )"Send_Task",         // 任务名称
+						  (uint16_t        )512,                 // 任务堆栈大小
+						  (void*           )NULL,                // 传递给任务函数的参数
+						  (UBaseType_t     )3,                   // 任务优先级
+						  (TaskHandle_t*   )&Send_Task_Handle);  // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
-		printf("Task2 Create Success...\n");
+		printf("Send_Task Create Success...\n");
 
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 
 	taskEXIT_CRITICAL();                  //退出临界区
 }
 
-static void Task1_Entry(void* param)
+static void Receive_Task(void* param)
 {
+	BaseType_t xReturn = pdTRUE;
+	uint32_t recv_data;
+	
 	for(;;)
 	{
-		printf("Task1 Running...\n");
-		vTaskSuspend(Task2_Handle);    // 挂起Task2
-		vTaskDelay(100);    // 系统的时钟节拍设置为10ms中断一次，因此延时100个时钟节拍的时间是1s
-		vTaskResume(Task2_Handle);     // 恢复Task2, 该函数可以恢复已经删除的任务
+		xReturn = xQueueReceive(Test_Queue,      /* 消息队列的句柄 */
+							    &recv_data,		 /* 接收的消息内容 */
+								portMAX_DELAY);  /* 等待时间一直等 */
 		
-		//vTaskDelete(Task2_Handle);
+		if(xReturn == pdTRUE)
+			printf("Receive data = %d\n", recv_data);
+		else
+			printf("Data receive error...\n");
+		
+		vTaskDelay(100);
 	}
 }
 
-static void Task2_Entry(void* param)
+static void Send_Task(void* param)
 {
-	static portTickType PreviousWakeTime;
-	const portTickType TimeInncrement = pdMS_TO_TICKS(10);
-	
-	PreviousWakeTime = xTaskGetTickCount();
+	BaseType_t xReturn = pdPASS;
+	uint32_t send_data = 1;
 	
 	for(;;)
 	{
-		printf("Task2 Running...\n");
-//		vTaskDelay(10);
-		vTaskDelayUntil(&PreviousWakeTime, TimeInncrement);
+		printf("Send_data...\n");
+		
+		xReturn = xQueueSend(Test_Queue,   /* 消息队列的句柄 */
+							 &send_data,   /* 发送的消息内容 */
+		                     0);           /* 等待时间 0 */
+		
+		if(xReturn == pdPASS)
+			printf("Send data success...\n");
+		
+		send_data++;
+		
+		vTaskDelay(10);
 	}
 }
 
