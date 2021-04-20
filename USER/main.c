@@ -88,7 +88,7 @@ static void AppTaskCreate(void)
 	                      (const char*     )"HighPriority_Task",         // 任务名称
 						  (uint16_t        )512,                 // 任务堆栈大小
 						  (void*           )NULL,                // 传递给任务函数的参数
-						  (UBaseType_t     )3,                   // 任务优先级
+						  (UBaseType_t     )4,                   // 任务优先级
 						  (TaskHandle_t*   )&HighPriority_Task_Handle);  // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
@@ -113,7 +113,7 @@ static void LowPriority_Task(void* param)
 		if(xReturn == pdTRUE)
 			printf("LowPriority_Task Running...\n");
 
-		for(i = 0; i < 0xFFFFFF; i++)
+		for(i = 0; i < 100000; i++)
 		{
 			taskYIELD();
 		}
