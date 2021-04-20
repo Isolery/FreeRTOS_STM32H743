@@ -110,38 +110,74 @@ static void Receive_Task(void* param)
 
 static void Send_Task(void* param)
 {
-	BaseType_t xReturn = pdPASS;
-	uint32_t send_data = 1;
-	
-	vTaskSuspend(Receive_Task_Handle);  
+//	BaseType_t xReturn = pdPASS;
+//	uint32_t send_data = 1;
+//	
+//	vTaskSuspend(Receive_Task_Handle);  
 	
 	for(;;)
 	{
-		printf("Send_data...\n");
-		
-		xReturn = xQueueSend(Test_Queue,   /* 消息队列的句柄 */
-							 &send_data,   /* 发送的消息内容 */
-		                     0);           /* 等待时间 0 */
-		
-		if(xReturn == pdPASS)
-			printf("Send data success...\n");
-		
-		send_data++;
-		
-		if(send_data == 100)
-		{
-			vTaskResume(Receive_Task_Handle); 
-			vTaskSuspend(Send_Task_Handle);  
-			printf("Resume Receive Task...\n");
-		}
+//		printf("Send_data...\n");
+//		
+//		xReturn = xQueueSend(Test_Queue,   /* 消息队列的句柄 */
+//							 &send_data,   /* 发送的消息内容 */
+//		                     0);           /* 等待时间 0 */
+//		
+//		if(xReturn == pdPASS)
+//			printf("Send data success...\n");
+//		
+//		send_data++;
+//		
+//		if(send_data == 100)
+//		{
+//			vTaskResume(Receive_Task_Handle); 
+//			vTaskSuspend(Send_Task_Handle);  
+//			printf("Resume Receive Task...\n");
+//		}
 
 		vTaskDelay(1);
 	}
+}
+
+void EXIT_Init(void)
+{
+	GPIO_InitTypeDef GPIO_InitStruct;
+	
+	__HAL_RCC_GPIOA_CLK_ENABLE();
+	
+	GPIO_InitStruct.Pin = GPIO_PIN_12;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+	
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
+}
+
+void EXTI15_10_IRQHandler(void)
+{
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	uint32_t send_data = 1;
+	
+	printf("EXTI15_10_IRQHandler\n");
+	
+	xQueueSendFromISR(Test_Queue,                           /* 消息队列的句柄 */
+					  &send_data,                           /* 发送的消息内容 */
+					  &xHigherPriorityTaskWoken);           /* 等待时间 0 */
+	
+	if(xHigherPriorityTaskWoken)
+	{
+		portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+	}
+	
+	HAL_GPIO_EXTI_IRQHandler(GPIO_PIN_12);
 }
 
 void System_Init(void)
 {
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
 	USART6_Init(115200);
+	EXIT_Init();
 	printf("============Start============\n");
 }
