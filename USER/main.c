@@ -2,6 +2,7 @@
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+#include "event_groups.h"
 #include "sys.h"
 #include "usart.h"
 
@@ -18,8 +19,8 @@ static TaskHandle_t LowPriority_Task_Handle = NULL;   /* LowPriority_Task任务�
 static TaskHandle_t MidPriority_Task_Handle = NULL;   /* MidPriority_Task任务句柄 */
 static TaskHandle_t HighPriority_Task_Handle = NULL;  /* HighPriority_Task任务句柄 */
 
-//二值信号量句柄
-SemaphoreHandle_t MuxSem_Handle = NULL;
+//任务句柄
+static EventGroupHandle_t Event_Handle = NULL; 
 
 int main(void)
 {
@@ -54,12 +55,10 @@ static void AppTaskCreate(void)
 	
 	taskENTER_CRITICAL();           //进入临界区
 
-	/* 创建MuxSem */
-	MuxSem_Handle = xSemaphoreCreateMutex();	 
-	if(MuxSem_Handle != NULL)
-		printf("MuxSem_Handle Create Success...\n");
-
-	xReturn = xSemaphoreGive(MuxSem_Handle);  //给出互斥信号量
+	/* 创建Event_Handle */
+	Event_Handle = xEventGroupCreate();	 
+	if(Event_Handle != NULL)
+		printf("Event_Handle Create Success...\n");
 	
 	/* 创建LowPriority_Task任务 */
 	xReturn = xTaskCreate((TaskFunction_t  )LowPriority_Task,           // 任务函数
@@ -101,28 +100,26 @@ static void AppTaskCreate(void)
 
 static void LowPriority_Task(void* param)
 {
-	static uint32_t i;
-	BaseType_t xReturn = pdPASS;
+	EventBits_t r_event;
 
 	for(;;)
 	{
-		printf("LowPriority_Task Get Semaphore...\n");
+		r_event = xEventGroupWaitBits(Event_Handle,    /* 事件对象句柄 */
+									  (1<<0)|(1<<1),   /* 接收线程感兴趣的事件 */
+									  pdTRUE,          /* 退出时清除事件位 */
+									  pdFALSE,         /* pdTRUE:满足感兴趣的所有事件 pdFALSE:满足感兴趣的任一事件*/
+									  portMAX_DELAY);  /* 指定超时事件,一直等 */
 
-		xReturn = xSemaphoreTake(MuxSem_Handle, portMAX_DELAY);
-
-		if(xReturn == pdTRUE)
-			printf("LowPriority_Task Running...\n");
-
-		for(i = 0; i < 1000000; i++)
+		if((r_event & (1<<0)|(1<<1)) != 0)	
 		{
-			taskYIELD();
+			printf("LowPriority_Task Running...\n");
+		}						
+		else
+		{
+			printf("Event Error...\n");
 		}
 
-		printf("LowPriority_Task Release Semaphore...\n");
-
-		xReturn = xSemaphoreGive(MuxSem_Handle);
-
-		vTaskDelay(50);
+		vTaskDelay(1);
 	}
 }
 
@@ -137,21 +134,12 @@ static void MidPriority_Task(void* param)
 
 static void HighPriority_Task(void* parameter)
 {
-	BaseType_t xReturn = pdTRUE;
-
 	for(;;)
 	{
-		printf("HighPriority_Task Get Semaphore...\n");
+		vTaskDelay(500);
 
-		xReturn = xSemaphoreTake(MuxSem_Handle, portMAX_DELAY);
-
-		if(xReturn == pdTRUE)
-		{
-			printf("HighPriority_Task Running...\n");
-		}
-
-		printf("HighPriority_Task Release Semaphore...\n");
-		xReturn = xSemaphoreGive(MuxSem_Handle);
+		xEventGroupSetBits(Event_Handle, (1<<2));
+		xEventGroupSetBits(Event_Handle, (1<<1));
 
 		vTaskDelay(50);
 	}
