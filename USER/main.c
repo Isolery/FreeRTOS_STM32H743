@@ -19,7 +19,7 @@ static TaskHandle_t MidPriority_Task_Handle = NULL;   /* MidPriority_Task任务�
 static TaskHandle_t HighPriority_Task_Handle = NULL;  /* HighPriority_Task任务句柄 */
 
 //二值信号量句柄
-SemaphoreHandle_t BinarySem_Handle = NULL;
+SemaphoreHandle_t MuxSem_Handle = NULL;
 
 int main(void)
 {
@@ -54,12 +54,12 @@ static void AppTaskCreate(void)
 	
 	taskENTER_CRITICAL();           //进入临界区
 
-	/* 创建CountSem */
-	BinarySem_Handle = xSemaphoreCreateBinary();	 
-	if(BinarySem_Handle != NULL)
-		printf("BinarySem Create Success...\n");
+	/* 创建MuxSem */
+	MuxSem_Handle = xSemaphoreCreateMutex();	 
+	if(MuxSem_Handle != NULL)
+		printf("MuxSem_Handle Create Success...\n");
 
-	xReturn = xSemaphoreGive(BinarySem_Handle);  //给出二值信号量
+	xReturn = xSemaphoreGive(MuxSem_Handle);  //给出互斥信号量
 	
 	/* 创建LowPriority_Task任务 */
 	xReturn = xTaskCreate((TaskFunction_t  )LowPriority_Task,           // 任务函数
@@ -88,7 +88,7 @@ static void AppTaskCreate(void)
 	                      (const char*     )"HighPriority_Task",         // 任务名称
 						  (uint16_t        )512,                 // 任务堆栈大小
 						  (void*           )NULL,                // 传递给任务函数的参数
-						  (UBaseType_t     )3,                   // 任务优先级
+						  (UBaseType_t     )4,                   // 任务优先级
 						  (TaskHandle_t*   )&HighPriority_Task_Handle);  // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
@@ -108,19 +108,19 @@ static void LowPriority_Task(void* param)
 	{
 		printf("LowPriority_Task Get Semaphore...\n");
 
-		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+		xReturn = xSemaphoreTake(MuxSem_Handle, portMAX_DELAY);
 
 		if(xReturn == pdTRUE)
 			printf("LowPriority_Task Running...\n");
 
-		for(i = 0; i < 0xFFFFFF; i++)
+		for(i = 0; i < 1000000; i++)
 		{
 			taskYIELD();
 		}
 
 		printf("LowPriority_Task Release Semaphore...\n");
 
-		xReturn = xSemaphoreGive(BinarySem_Handle);
+		xReturn = xSemaphoreGive(MuxSem_Handle);
 
 		vTaskDelay(50);
 	}
@@ -137,20 +137,21 @@ static void MidPriority_Task(void* param)
 
 static void HighPriority_Task(void* parameter)
 {
-	BaseType_t xReturn = pdPASS;
+	BaseType_t xReturn = pdTRUE;
 
 	for(;;)
 	{
 		printf("HighPriority_Task Get Semaphore...\n");
 
-		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+		xReturn = xSemaphoreTake(MuxSem_Handle, portMAX_DELAY);
 
 		if(xReturn == pdTRUE)
 		{
 			printf("HighPriority_Task Running...\n");
 		}
 
-		xReturn = xSemaphoreGive(BinarySem_Handle);
+		printf("HighPriority_Task Release Semaphore...\n");
+		xReturn = xSemaphoreGive(MuxSem_Handle);
 
 		vTaskDelay(50);
 	}
