@@ -15,8 +15,11 @@ static TaskHandle_t AppTaskCreate_Handle = NULL;
 static TaskHandle_t Receive_Task_Handle = NULL;
 static TaskHandle_t Send_Task_Handle = NULL;
 
-//创建二值信号量句柄
-SemaphoreHandle_t BinarySem_Handle = NULL;
+//创建计数信号量句柄
+//计数信号量可以用于资源管理，允许多个任务获取信号量访问共享资源，但会限制任
+//务的最大数目。访问的任务数达到可支持的最大数目时，会阻塞其他试图获取该信号量的
+//任务，直到有任务释放了信号量
+SemaphoreHandle_t CountSem_Handle = NULL;
 
 int main(void)
 {
@@ -51,11 +54,11 @@ static void AppTaskCreate(void)
 	
 	taskENTER_CRITICAL();           //进入临界区
 
-	/* 创建BinarySem */
-	BinarySem_Handle = xSemaphoreCreateBinary();
+	/* 创建CountSem */
+	CountSem_Handle = xSemaphoreCreateCounting(5, 5);
 
-	if(BinarySem_Handle != NULL)
-		printf("Create Binary Semaphore success...\n");
+	if(CountSem_Handle != NULL)
+		printf("Create Count Semaphore success...\n");
 	
 	/* 创建Receive_Task任务 */
 	xReturn = xTaskCreate((TaskFunction_t  )Receive_Task,           // 任务函数
@@ -90,12 +93,12 @@ static void Receive_Task(void* param)
 
 	for(;;)
 	{
-		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+		xReturn = xSemaphoreTake(CountSem_Handle, 0);
 
 		if(xReturn == pdTRUE)
-			printf("BinarySem Get Success...\n");
+			printf("CountSem Get Success...\n");
 		else
-			printf("BinarySem Get Failure...\n");
+			printf("CountSem Get Failure...\n");
 
 		vTaskDelay(1);
 	}
@@ -105,15 +108,26 @@ static void Send_Task(void* param)
 {
 	BaseType_t xReturn = pdPASS;
 	
+	vTaskSuspend(Receive_Task_Handle);
+
 	for(;;)
 	{
-		vTaskDelay(1000);
+		while(1)
+		{
+			xReturn = xSemaphoreGive(CountSem_Handle);     // 给出计数信号量
+			if(xReturn == pdTRUE)
+				printf("CountSem Release Success...\n");
+			else
+			{
+				printf("CountSem Release Failure...\n");
+				break;
+			}	
 
-		xReturn = xSemaphoreGive(BinarySem_Handle);     // 给出二值信号量
-		if(xReturn == pdTRUE)
-			printf("BinarySem Release Success...\n");
-		else
-			printf("BinarySem Release Failure...\n");
+			vTaskDelay(100);
+		}
+		
+		vTaskResume(Receive_Task_Handle);
+		vTaskDelay(10);
 	}
 }
 
