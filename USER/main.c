@@ -6,20 +6,20 @@
 #include "usart.h"
 
 void System_Init(void);
+
 static void AppTaskCreate(void);
-static void Receive_Task(void* param);
-static void Send_Task(void* param);
+static void LowPriority_Task(void* pvParameters);   /* LowPriority_Task任务实现 */
+static void MidPriority_Task(void* pvParameters);   /* MidPriority_Task任务实现 */
+static void HighPriority_Task(void* pvParameters);  /* MidPriority_Task任务实现 */
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
-static TaskHandle_t Receive_Task_Handle = NULL;
-static TaskHandle_t Send_Task_Handle = NULL;
+static TaskHandle_t LowPriority_Task_Handle = NULL;   /* LowPriority_Task任务句柄 */
+static TaskHandle_t MidPriority_Task_Handle = NULL;   /* MidPriority_Task任务句柄 */
+static TaskHandle_t HighPriority_Task_Handle = NULL;  /* HighPriority_Task任务句柄 */
 
-//创建计数信号量句柄
-//计数信号量可以用于资源管理，允许多个任务获取信号量访问共享资源，但会限制任
-//务的最大数目。访问的任务数达到可支持的最大数目时，会阻塞其他试图获取该信号量的
-//任务，直到有任务释放了信号量
-SemaphoreHandle_t CountSem_Handle = NULL;
+//二值信号量句柄
+SemaphoreHandle_t BinarySem_Handle = NULL;
 
 int main(void)
 {
@@ -55,79 +55,104 @@ static void AppTaskCreate(void)
 	taskENTER_CRITICAL();           //进入临界区
 
 	/* 创建CountSem */
-	CountSem_Handle = xSemaphoreCreateCounting(5, 5);
+	BinarySem_Handle = xSemaphoreCreateBinary();	 
+	if(BinarySem_Handle != NULL)
+		printf("BinarySem Create Success...\n");
 
-	if(CountSem_Handle != NULL)
-		printf("Create Count Semaphore success...\n");
+	xReturn = xSemaphoreGive(BinarySem_Handle);  //给出二值信号量
 	
-	/* 创建Receive_Task任务 */
-	xReturn = xTaskCreate((TaskFunction_t  )Receive_Task,           // 任务函数
-	                      (const char*     )"Receive_Task",         // 任务名称
+	/* 创建LowPriority_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )LowPriority_Task,           // 任务函数
+	                      (const char*     )"LowPriority_Task",         // 任务名称
 						  (uint16_t        )512,                    // 任务堆栈大小
 						  (void*           )NULL,                   // 传递给任务函数的参数
 						  (UBaseType_t     )2,                      // 任务优先级
-						  (TaskHandle_t*   )&Receive_Task_Handle);  // 任务控制块指针  
+						  (TaskHandle_t*   )&LowPriority_Task_Handle);  // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
-		printf("Receive_Task Create Success...\n");
+		printf("LowPriority_Task Create Success...\n");
 	
-	/* 创建任务2 */
-	xReturn = xTaskCreate((TaskFunction_t  )Send_Task,           // 任务函数
-	                      (const char*     )"Send_Task",         // 任务名称
+	/* 创建MidPriority_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )MidPriority_Task,           // 任务函数
+	                      (const char*     )"MidPriority_Task",         // 任务名称
 						  (uint16_t        )512,                 // 任务堆栈大小
 						  (void*           )NULL,                // 传递给任务函数的参数
 						  (UBaseType_t     )3,                   // 任务优先级
-						  (TaskHandle_t*   )&Send_Task_Handle);  // 任务控制块指针  
+						  (TaskHandle_t*   )&MidPriority_Task_Handle);  // 任务控制块指针  
+	
+	if(pdPASS == xReturn)               
+		printf("MidPriority_Task Create Success...\n");					  
+
+	/* 创建HighPriority_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )HighPriority_Task,           // 任务函数
+	                      (const char*     )"HighPriority_Task",         // 任务名称
+						  (uint16_t        )512,                 // 任务堆栈大小
+						  (void*           )NULL,                // 传递给任务函数的参数
+						  (UBaseType_t     )3,                   // 任务优先级
+						  (TaskHandle_t*   )&HighPriority_Task_Handle);  // 任务控制块指针  
 
 	if(pdPASS == xReturn)               
-		printf("Send_Task Create Success...\n");
+		printf("HighPriority_Task Create Success...\n");
 
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 
 	taskEXIT_CRITICAL();                  //退出临界区
 }
 
-static void Receive_Task(void* param)
+static void LowPriority_Task(void* param)
 {
+	static uint32_t i;
 	BaseType_t xReturn = pdPASS;
 
 	for(;;)
 	{
-		xReturn = xSemaphoreTake(CountSem_Handle, 0);
+		printf("LowPriority_Task Get Semaphore...\n");
+
+		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
 
 		if(xReturn == pdTRUE)
-			printf("CountSem Get Success...\n");
-		else
-			printf("CountSem Get Failure...\n");
+			printf("LowPriority_Task Running...\n");
 
-		vTaskDelay(1);
+		for(i = 0; i < 0xFFFFFF; i++)
+		{
+			taskYIELD();
+		}
+
+		printf("LowPriority_Task Release Semaphore...\n");
+
+		xReturn = xSemaphoreGive(BinarySem_Handle);
+
+		vTaskDelay(50);
 	}
 }
 
-static void Send_Task(void* param)
+static void MidPriority_Task(void* param)
+{
+	for(;;)
+	{
+		printf("MidPriority_Task Running...\n");
+		vTaskDelay(50);
+	}
+}
+
+static void HighPriority_Task(void* parameter)
 {
 	BaseType_t xReturn = pdPASS;
-	
-	vTaskSuspend(Receive_Task_Handle);
 
 	for(;;)
 	{
-		while(1)
-		{
-			xReturn = xSemaphoreGive(CountSem_Handle);     // 给出计数信号量
-			if(xReturn == pdTRUE)
-				printf("CountSem Release Success...\n");
-			else
-			{
-				printf("CountSem Release Failure...\n");
-				break;
-			}	
+		printf("HighPriority_Task Get Semaphore...\n");
 
-			vTaskDelay(100);
+		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+
+		if(xReturn == pdTRUE)
+		{
+			printf("HighPriority_Task Running...\n");
 		}
-		
-		vTaskResume(Receive_Task_Handle);
-		vTaskDelay(10);
+
+		xReturn = xSemaphoreGive(BinarySem_Handle);
+
+		vTaskDelay(50);
 	}
 }
 
