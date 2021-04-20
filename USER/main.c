@@ -1,6 +1,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "semphr.h"
 #include "sys.h"
 #include "usart.h"
 
@@ -14,11 +15,8 @@ static TaskHandle_t AppTaskCreate_Handle = NULL;
 static TaskHandle_t Receive_Task_Handle = NULL;
 static TaskHandle_t Send_Task_Handle = NULL;
 
-//创建消息队列句柄
-QueueHandle_t Test_Queue = NULL;
-
-#define  QUEUE_LEN    100   /* 队列的长度，最大可包含多少个消息 */
-#define  QUEUE_SIZE   4   /* 队列中每个消息大小（字节） */
+//创建二值信号量句柄
+SemaphoreHandle_t BinarySem_Handle = NULL;
 
 int main(void)
 {
@@ -53,12 +51,11 @@ static void AppTaskCreate(void)
 	
 	taskENTER_CRITICAL();           //进入临界区
 
-	/* 创建消息队列Queue */
-	Test_Queue = xQueueCreate((UBaseType_t) QUEUE_LEN,    // 消息队列的长度
-							  (UBaseType_t) QUEUE_SIZE);  // 消息的大小
-	
-	if(Test_Queue != NULL)
-		printf("Create Test_Queue Success...\n");
+	/* 创建BinarySem */
+	BinarySem_Handle = xSemaphoreCreateBinary();
+
+	if(BinarySem_Handle != NULL)
+		printf("Create Binary Semaphore success...\n");
 	
 	/* 创建Receive_Task任务 */
 	xReturn = xTaskCreate((TaskFunction_t  )Receive_Task,           // 任务函数
@@ -89,21 +86,17 @@ static void AppTaskCreate(void)
 
 static void Receive_Task(void* param)
 {
-	BaseType_t xReturn = pdTRUE;
-	uint32_t recv_data;
-	
+	BaseType_t xReturn = pdPASS;
+
 	for(;;)
 	{
-		//printf("Receive_Task is running...\n");
-		xReturn = xQueueReceive(Test_Queue,      /* 消息队列的句柄 */
-							    &recv_data,		 /* 接收的消息内容 */
-								portMAX_DELAY);  /* 等待时间一直等 */
-		
+		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+
 		if(xReturn == pdTRUE)
-			printf("Receive data = %d\n", recv_data);
+			printf("BinarySem Get Success...\n");
 		else
-			printf("Data receive error...\n");
-		
+			printf("BinarySem Get Failure...\n");
+
 		vTaskDelay(1);
 	}
 }
@@ -111,31 +104,16 @@ static void Receive_Task(void* param)
 static void Send_Task(void* param)
 {
 	BaseType_t xReturn = pdPASS;
-	uint32_t send_data = 1;
-	
-	vTaskSuspend(Receive_Task_Handle);  
 	
 	for(;;)
 	{
-		printf("Send_data...\n");
-		
-		xReturn = xQueueSend(Test_Queue,   /* 消息队列的句柄 */
-							 &send_data,   /* 发送的消息内容 */
-		                     0);           /* 等待时间 0 */
-		
-		if(xReturn == pdPASS)
-			printf("Send data success...\n");
-		
-		send_data++;
-		
-		if(send_data == 100)
-		{
-			vTaskResume(Receive_Task_Handle); 
-			vTaskSuspend(Send_Task_Handle);  
-			printf("Resume Receive Task...\n");
-		}
+		vTaskDelay(1000);
 
-		vTaskDelay(1);
+		xReturn = xSemaphoreGive(BinarySem_Handle);     // 给出二值信号量
+		if(xReturn == pdTRUE)
+			printf("BinarySem Release Success...\n");
+		else
+			printf("BinarySem Release Failure...\n");
 	}
 }
 
