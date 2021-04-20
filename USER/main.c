@@ -94,10 +94,14 @@ static void Receive_Task(void* param)
 	
 	for(;;)
 	{
-		//printf("Receive_Task is running...\n");
-		xReturn = xQueueReceive(Test_Queue,      /* 消息队列的句柄 */
-							    &recv_data,		 /* 接收的消息内容 */
-								portMAX_DELAY);  /* 等待时间一直等 */
+//		xReturn = xQueueReceive(Test_Queue,      /* 消息队列的句柄 */
+//							    &recv_data,		 /* 接收的消息内容 */
+//								portMAX_DELAY);  /* 等待时间一直等 */
+
+		// 由于xQueuePeek不删除队列中的消息，所以接收的消息永远就是队列中的第一个数据
+		xReturn = xQueuePeek(Test_Queue,      /* 消息队列的句柄 */
+							 &recv_data,	  /* 接收的消息内容 */
+							 portMAX_DELAY);  /* 等待时间一直等 */
 		
 		if(xReturn == pdTRUE)
 			printf("Receive data = %d\n", recv_data);
