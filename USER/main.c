@@ -100,24 +100,18 @@ static void AppTaskCreate(void)
 
 static void LowPriority_Task(void* param)
 {
-	EventBits_t r_event;
-
+	BaseType_t xReturn = pdTRUE;
+	char *recv;
+	
 	for(;;)
 	{
-		r_event = xEventGroupWaitBits(Event_Handle,    /* 事件对象句柄 */
-									  (1<<0)|(1<<1),   /* 接收线程感兴趣的事件 */
-									  pdTRUE,          /* 退出时清除事件位 */
-									  pdFALSE,         /* pdTRUE:满足感兴趣的所有事件 pdFALSE:满足感兴趣的任一事件*/
-									  portMAX_DELAY);  /* 指定超时事件,一直等 */
-
-		if((r_event & (1<<0)|(1<<1)) != 0)	
-		{
-			printf("LowPriority_Task Running...\n");
-		}						
-		else
-		{
-			printf("Event Error...\n");
-		}
+		xReturn = xTaskNotifyWait(0x0,
+								  0xFFFFFFFF,
+								  (uint32_t *)&recv,
+		                          portMAX_DELAY);
+		
+		if(pdTRUE == xReturn)
+			printf("LowPriority_Task receive data is %s \n", recv);
 
 		vTaskDelay(1);
 	}
@@ -125,22 +119,46 @@ static void LowPriority_Task(void* param)
 
 static void MidPriority_Task(void* param)
 {
+	BaseType_t xReturn = pdTRUE;
+	char *recv;
+	
 	for(;;)
 	{
-		printf("MidPriority_Task Running...\n");
-		vTaskDelay(50);
+		xReturn = xTaskNotifyWait(0x0,
+								  0xFFFFFFFF,
+								  (uint32_t *)&recv,
+		                          portMAX_DELAY);
+		
+		if(pdTRUE == xReturn)
+			printf("MidPriority_Task receive data is %s \n", recv);
+
+		vTaskDelay(1);
 	}
 }
 
 static void HighPriority_Task(void* parameter)
 {
+	BaseType_t xReturn = pdPASS;
+	
+	char str1[] = "this is a mail test 1";
+	char str2[] = "this is a mail test 2";
+	
 	for(;;)
 	{
-		vTaskDelay(500);
+		xReturn = xTaskNotify(LowPriority_Task_Handle,
+							  (uint32_t)&str1,
+		                      eSetValueWithOverwrite);
+		
+		if(xReturn == pdPASS)
+			printf("TaskNotify Send to LowPriority_Task Success...\n");
 
-		xEventGroupSetBits(Event_Handle, (1<<2));
-		xEventGroupSetBits(Event_Handle, (1<<1));
-
+		xReturn = xTaskNotify(MidPriority_Task_Handle,
+							  (uint32_t)&str2,
+		                      eSetValueWithOverwrite);
+		
+		if(xReturn == pdPASS)
+			printf("TaskNotify Send to MidPriority_Task Success...\n");
+		
 		vTaskDelay(50);
 	}
 }
