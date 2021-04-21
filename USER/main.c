@@ -105,10 +105,10 @@ static void LowPriority_Task(void* param)
 	
 	for(;;)
 	{
-		xReturn = xTaskNotifyWait(0x0,
-								  0xFFFFFFFF,
-								  (uint32_t *)&recv,
-		                          portMAX_DELAY);
+		xReturn = xTaskNotifyWait(0x0,               // 进入函数的时候不清除任务bit
+								  0xFFFFFFFF,        // 退出函数的时候清除所有的bit
+								  (uint32_t *)&recv, // 保存任务的通知值
+		                          portMAX_DELAY);    // 阻塞时间
 		
 		if(pdTRUE == xReturn)
 			printf("LowPriority_Task receive data is %s \n", recv);
@@ -145,9 +145,9 @@ static void HighPriority_Task(void* parameter)
 	
 	for(;;)
 	{
-		xReturn = xTaskNotify(LowPriority_Task_Handle,
-							  (uint32_t)&str1,
-		                      eSetValueWithOverwrite);
+		xReturn = xTaskNotify(LowPriority_Task_Handle,     // 任务句柄
+		                      (uint32_t)&str1,             // 发送的数据,最大为4Byte
+		                      eSetValueWithOverwrite);     // 覆盖当前通知
 		
 		if(xReturn == pdPASS)
 			printf("TaskNotify Send to LowPriority_Task Success...\n");
