@@ -100,38 +100,34 @@ static void AppTaskCreate(void)
 
 static void LowPriority_Task(void* param)
 {
-	BaseType_t xReturn = pdTRUE;
-	char *recv;
-	
 	for(;;)
 	{
-		xReturn = xTaskNotifyWait(0x0,               // 进入函数的时候不清除任务bit
-								  0xFFFFFFFF,        // 退出函数的时候清除所有的bit
-								  (uint32_t *)&recv, // 保存任务的通知值
-		                          portMAX_DELAY);    // 阻塞时间
+		/* uint32_t ulTaskNotifyTake( BaseType_t xClearCountOnExit, TickType_t xTicksToWait ); 
+		 * xClearCountOnExit：pdTRUE 在退出函数的时候任务任务通知值清零，类似二值信号量
+		 * pdFALSE 在退出函数ulTaskNotifyTakeO的时候任务通知值减一，类似计数型信号量。
+		 */
+		// 获取任务通知 ,没获取到则一直等待
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		
-		if(pdTRUE == xReturn)
-			printf("LowPriority_Task receive data is %s \n", recv);
-
+		printf("LowPriority_Task Event Get Success...\n");
+		
 		vTaskDelay(1);
 	}
 }
 
 static void MidPriority_Task(void* param)
 {
-	BaseType_t xReturn = pdTRUE;
-	char *recv;
-	
 	for(;;)
 	{
-		xReturn = xTaskNotifyWait(0x0,
-								  0xFFFFFFFF,
-								  (uint32_t *)&recv,
-		                          portMAX_DELAY);
+		/* uint32_t ulTaskNotifyTake( BaseType_t xClearCountOnExit, TickType_t xTicksToWait ); 
+		 * xClearCountOnExit：pdTRUE 在退出函数的时候任务任务通知值清零，类似二值信号量
+		 * pdFALSE 在退出函数ulTaskNotifyTakeO的时候任务通知值减一，类似计数型信号量。
+		 */
+		// 获取任务通知 ,没获取到则一直等待
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 		
-		if(pdTRUE == xReturn)
-			printf("MidPriority_Task receive data is %s \n", recv);
-
+		printf("MidPriority_Task Event Get Success...\n");
+		
 		vTaskDelay(1);
 	}
 }
@@ -140,24 +136,17 @@ static void HighPriority_Task(void* parameter)
 {
 	BaseType_t xReturn = pdPASS;
 	
-	char str1[] = "this is a mail test 1";
-	char str2[] = "this is a mail test 2";
-	
 	for(;;)
 	{
-		xReturn = xTaskNotify(LowPriority_Task_Handle,     // 任务句柄
-		                      (uint32_t)&str1,             // 发送的数据,最大为4Byte
-		                      eSetValueWithOverwrite);     // 覆盖当前通知
+		xReturn = xTaskNotifyGive(LowPriority_Task_Handle);
 		
 		if(xReturn == pdPASS)
-			printf("TaskNotify Send to LowPriority_Task Success...\n");
-
-		xReturn = xTaskNotify(MidPriority_Task_Handle,
-							  (uint32_t)&str2,
-		                      eSetValueWithOverwrite);
+			printf("LowPriority_Task Event Send Success...\n");
+		
+		xReturn = xTaskNotifyGive(MidPriority_Task_Handle);
 		
 		if(xReturn == pdPASS)
-			printf("TaskNotify Send to MidPriority_Task Success...\n");
+			printf("MidPriority_Task Event Send Success...\n");
 		
 		vTaskDelay(50);
 	}
