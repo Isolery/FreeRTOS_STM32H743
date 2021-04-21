@@ -22,6 +22,8 @@ static TaskHandle_t HighPriority_Task_Handle = NULL;  /* HighPriority_Task任务
 //任务句柄
 static EventGroupHandle_t Event_Handle = NULL; 
 
+uint8_t *Test_Ptr = NULL;
+
 int main(void)
 {
 	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
@@ -100,36 +102,9 @@ static void AppTaskCreate(void)
 
 static void LowPriority_Task(void* param)
 {
-	uint32_t r_event = 0;
-	//uint32_t last_event = 0;
-	BaseType_t xReturn = pdTRUE;
-	
+
 	for(;;)
 	{
-		/* BaseType_t xTaskNotifyWait(uint32_t ulBitsToClearOnEntry, 
-									  uint32_t ulBitsToClearOnExit, 
-									  uint32_t *pulNotificationValue, 
-									  TickType_t xTicksToWait ); 
-		* ulBitsToClearOnEntry：当没有接收到任务通知的时候将任务通知值与此参数的取
-		反值进行按位与运算，当此参数为Oxfffff或者ULONG_MAX的时候就会将任务通知值清零。
-		* ulBits ToClearOnExit：如果接收到了任务通知，在做完相应的处理退出函数之前将
-		任务通知值与此参数的取反值进行按位与运算，当此参数为0xfffff或者ULONG MAX的时候
-		就会将任务通知值清零。
-		* pulNotification Value：此参数用来保存任务通知值。
-		* xTick ToWait：阻塞时间。
-		*
-		* 返回值：pdTRUE：获取到了任务通知。pdFALSE：任务通知获取失败。
-		*/
-		//获取任务通知 ,没获取到则一直等待
-		xReturn = xTaskNotifyWait(0x0,
-								  0xFFFFFFFF,
-		                          &r_event,
-		                          portMAX_DELAY);
-		
-		if(xReturn == pdTRUE)
-		{
-			printf("r_event = %X\n", r_event);
-		}
 		
 		vTaskDelay(10);
 	}
@@ -146,30 +121,25 @@ static void MidPriority_Task(void* param)
 
 static void HighPriority_Task(void* parameter)
 {
+	uint32_t g_memsize;
+	
 	for(;;)
 	{
-		/* 原型:BaseType_t xTaskNotify(TaskHandle_t xTaskToNotify, 
-									   uint32_t ulValue, 
-									   eNotifyAction eAction ); 
-		* eNoAction = 0，通知任务而不更新其通知值。
-		* eSetBits，     设置任务通知值中的位。
-		* eIncrement，   增加任务的通知值。
-		* eSetvaluewithoverwrite，覆盖当前通知
-		* eSetValueWithoutoverwrite 不覆盖当前通知
-		* 
-		* pdFAIL：当参数eAction设置为eSetValueWithoutOverwrite的时候，
-		* 如果任务通知值没有更新成功就返回pdFAIL。
-		* pdPASS: eAction 设置为其他选项的时候统一返回pdPASS。
-		*/
-		xTaskNotify((TaskHandle_t )LowPriority_Task_Handle,
-				    (uint32_t)(1<<0),
-		            (eNotifyAction)eSetBits);
+		g_memsize = xPortGetFreeHeapSize();
+		printf("Heap Size : %d\n", g_memsize);
 		
-		xTaskNotify((TaskHandle_t )LowPriority_Task_Handle,
-				    (uint32_t)(1<<1),
-		            (eNotifyAction)eSetBits);
+		Test_Ptr = pvPortMalloc(1024);
+		if(Test_Ptr != NULL)
+		{
+			printf("malloc ok\n");
+			
+			g_memsize = xPortGetFreeHeapSize();
+			printf("Heap Size : %d\n", g_memsize);
+			
+			vPortFree(Test_Ptr);
+		}
 		
-		vTaskDelay(10);
+		vTaskDelay(100);
 	}
 }
 
