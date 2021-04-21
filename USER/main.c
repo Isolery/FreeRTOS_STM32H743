@@ -100,18 +100,23 @@ static void AppTaskCreate(void)
 
 static void LowPriority_Task(void* param)
 {
+	uint32_t take_num = pdTRUE;
+	
 	for(;;)
 	{
 		/* uint32_t ulTaskNotifyTake( BaseType_t xClearCountOnExit, TickType_t xTicksToWait ); 
 		 * xClearCountOnExit：pdTRUE 在退出函数的时候任务任务通知值清零，类似二值信号量
 		 * pdFALSE 在退出函数ulTaskNotifyTakeO的时候任务通知值减一，类似计数型信号量。
 		 */
-		// 获取任务通知 ,没获取到则一直等待
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		// 获取任务通知 ,没获取到则不等待
+		take_num = ulTaskNotifyTake(pdFALSE, 0);
 		
-		printf("LowPriority_Task Event Get Success...\n");
+		if(take_num > 0)
+			printf("LowPriority_Task Event Get Success %d\n", take_num - 1);
+		else
+			printf("Error\n");
 		
-		vTaskDelay(1);
+		vTaskDelay(10);
 	}
 }
 
@@ -119,16 +124,7 @@ static void MidPriority_Task(void* param)
 {
 	for(;;)
 	{
-		/* uint32_t ulTaskNotifyTake( BaseType_t xClearCountOnExit, TickType_t xTicksToWait ); 
-		 * xClearCountOnExit：pdTRUE 在退出函数的时候任务任务通知值清零，类似二值信号量
-		 * pdFALSE 在退出函数ulTaskNotifyTakeO的时候任务通知值减一，类似计数型信号量。
-		 */
-		// 获取任务通知 ,没获取到则一直等待
-		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-		
-		printf("MidPriority_Task Event Get Success...\n");
-		
-		vTaskDelay(1);
+		vTaskDelay(10);
 	}
 }
 
@@ -139,16 +135,13 @@ static void HighPriority_Task(void* parameter)
 	for(;;)
 	{
 		xReturn = xTaskNotifyGive(LowPriority_Task_Handle);
+		xReturn = xTaskNotifyGive(LowPriority_Task_Handle);
+		xReturn = xTaskNotifyGive(LowPriority_Task_Handle);
 		
 		if(xReturn == pdPASS)
 			printf("LowPriority_Task Event Send Success...\n");
 		
-		xReturn = xTaskNotifyGive(MidPriority_Task_Handle);
-		
-		if(xReturn == pdPASS)
-			printf("MidPriority_Task Event Send Success...\n");
-		
-		vTaskDelay(50);
+		vTaskDelay(500);
 	}
 }
 
