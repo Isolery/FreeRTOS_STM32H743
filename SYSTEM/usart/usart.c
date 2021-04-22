@@ -1,6 +1,10 @@
 #include "usart.h"
 //#include "delay.h"
 
+#define  USART1_RBUFF_SIZE            1000 
+uint8_t  RX_BUFF[USART1_RBUFF_SIZE] = {0};
+
+
 uint8_t rec_buf[1];
 uint16_t rec16[1];
 
@@ -8,6 +12,8 @@ UART_HandleTypeDef UART1_Handler; //UART1句柄
 UART_HandleTypeDef UART2_Handler; //UART2句柄
 UART_HandleTypeDef UART3_Handler; //UART3句柄
 UART_HandleTypeDef UART6_Handler; //UART6句柄
+
+DMA_HandleTypeDef DMA_Handle;
 
 void USART1_Init(u32 bound)
 {
@@ -106,7 +112,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 #if EN_USART1_RX
         HAL_NVIC_EnableIRQ(USART1_IRQn);         //使能USART1中断通道
-        HAL_NVIC_SetPriority(USART1_IRQn, 1, 1); //抢占优先级1，子优先级1
+        HAL_NVIC_SetPriority(USART1_IRQn, 6, 0); //抢占优先级6，子优先级0
 #endif
     }
 
@@ -127,7 +133,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 #if EN_USART2_RX
         HAL_NVIC_EnableIRQ(USART2_IRQn);         //使能USART2中断通道
-        HAL_NVIC_SetPriority(USART2_IRQn, 3, 3); //抢占优先级3，子优先级3
+        HAL_NVIC_SetPriority(USART2_IRQn, 6, 0); //抢占优先级6，子优先级0
 #endif
     }
 
@@ -173,6 +179,32 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 #endif
     }
 
+}
+
+void USART2_DMA_Config(void)
+{
+	/*开启DMA时钟*/
+	__HAL_RCC_DMA2_CLK_ENABLE(); //DMA2时钟使能
+	
+	__HAL_LINKDMA(&UART2_Handler, hdmatx, DMA_Handle);  //将DMA与USART2联系起来(发送DMA)
+
+    //Tx DMA配置
+    DMA_Handle.Instance=DMA2_Stream7;                            //数据流选择
+	DMA_Handle.Init.Request=DMA_REQUEST_USART2_TX;				//USART2发送DMA
+    DMA_Handle.Init.Direction=DMA_MEMORY_TO_PERIPH;             //存储器到外设
+    DMA_Handle.Init.PeriphInc=DMA_PINC_DISABLE;                 //外设非增量模式
+    DMA_Handle.Init.MemInc=DMA_MINC_ENABLE;                     //存储器增量模式
+    DMA_Handle.Init.PeriphDataAlignment=DMA_PDATAALIGN_BYTE;    //外设数据长度:8位
+    DMA_Handle.Init.MemDataAlignment=DMA_MDATAALIGN_BYTE;       //存储器数据长度:8位
+    DMA_Handle.Init.Mode=DMA_NORMAL;                            //外设流控模式
+    DMA_Handle.Init.Priority=DMA_PRIORITY_MEDIUM;               //中等优先级
+    DMA_Handle.Init.FIFOMode=DMA_FIFOMODE_DISABLE;              
+    DMA_Handle.Init.FIFOThreshold=DMA_FIFO_THRESHOLD_FULL;      
+    DMA_Handle.Init.MemBurst=DMA_MBURST_SINGLE;                 //存储器突发单次传输
+    DMA_Handle.Init.PeriphBurst=DMA_PBURST_SINGLE;              //外设突发单次传输
+
+    HAL_DMA_DeInit(&DMA_Handle);
+    HAL_DMA_Init(&DMA_Handle);
 }
 
 void USART1_IRQHandler(void)

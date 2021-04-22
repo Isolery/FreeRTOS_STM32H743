@@ -6,6 +6,9 @@
 #include "sys.h"
 #include "usart.h"
 
+#define SEND_BUF_SIZE 8200
+uint8_t SendBuff[SEND_BUF_SIZE] = {"ALIENTEK Explorer STM32F4 DMA USART Test"}; //发送数据缓冲区
+
 void System_Init(void);
 
 static void AppTaskCreate(void);
@@ -121,23 +124,20 @@ static void MidPriority_Task(void* param)
 
 static void HighPriority_Task(void* parameter)
 {
-	uint32_t g_memsize;
-	
 	for(;;)
 	{
-		g_memsize = xPortGetFreeHeapSize();
-		printf("Heap Size : %d\n", g_memsize);
-		
-		Test_Ptr = pvPortMalloc(1024);
-		if(Test_Ptr != NULL)
+		HAL_UART_Transmit_DMA(&UART2_Handler, SendBuff, SEND_BUF_SIZE); //启动传输
+		while (1)
 		{
-			printf("malloc ok\n");
-			
-			g_memsize = xPortGetFreeHeapSize();
-			printf("Heap Size : %d\n", g_memsize);
-			
-			vPortFree(Test_Ptr);
+			if (__HAL_DMA_GET_FLAG(&DMA_Handle, DMA_FLAG_TCIF3_7)) //等待DMA2_Steam7传输完成
+			{
+				__HAL_DMA_CLEAR_FLAG(&DMA_Handle, DMA_FLAG_TCIF3_7); //清除DMA2_Steam7传输完成标志
+				HAL_UART_DMAStop(&UART2_Handler);                            //传输完成以后关闭串口DMA
+				break;
+			}
 		}
+		
+		printf("HighPriority_Task Running...\n");
 		
 		vTaskDelay(100);
 	}
@@ -146,6 +146,9 @@ static void HighPriority_Task(void* parameter)
 void System_Init(void)
 {
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
+	USART1_Init(115200);
+	USART2_Init(115200);
+	USART2_DMA_Config();
 	USART6_Init(115200);
 	printf("============Start============\n");
 }
