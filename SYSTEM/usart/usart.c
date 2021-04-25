@@ -1,8 +1,8 @@
 #include "usart.h"
 //#include "delay.h"
 
-#define  USART1_RBUFF_SIZE            1000 
-uint8_t  RX_BUFF[USART1_RBUFF_SIZE] = {0};
+#define  USART2_RBUFF_SIZE            10 
+uint8_t  RX_BUFF[USART2_RBUFF_SIZE] = {0};
 
 
 uint8_t rec_buf[1];
@@ -27,7 +27,7 @@ void USART1_Init(u32 bound)
     UART1_Handler.Init.Mode = UART_MODE_TX_RX;          //收发模式
     HAL_UART_Init(&UART1_Handler);                      //HAL_UART_Init()会使能UART1
 
-    HAL_UART_Receive_IT(&UART1_Handler, rec_buf, 1);
+    //HAL_UART_Receive_IT(&UART1_Handler, rec_buf, 1);  // 使用DMA+IDLE中断模式
 }
 
 void USART2_Init(uint32_t bound)
@@ -181,17 +181,16 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 }
 
-void USART2_DMA_Config(void)
+void USART1_DMA_Config(void)
 {
 	/*开启DMA时钟*/
+	__HAL_RCC_DMA1_CLK_ENABLE(); //DMA1时钟使能
 	__HAL_RCC_DMA2_CLK_ENABLE(); //DMA2时钟使能
 	
-	__HAL_LINKDMA(&UART2_Handler, hdmatx, DMA_Handle);  //将DMA与USART2联系起来(发送DMA)
-
-    //Tx DMA配置
-    DMA_Handle.Instance=DMA2_Stream7;                            //数据流选择
-	DMA_Handle.Init.Request=DMA_REQUEST_USART2_TX;				//USART2发送DMA
-    DMA_Handle.Init.Direction=DMA_MEMORY_TO_PERIPH;             //存储器到外设
+    //Rx DMA配置
+    DMA_Handle.Instance=DMA2_Stream7;                           //数据流选择
+	DMA_Handle.Init.Request=DMA_REQUEST_USART1_RX;				//USART1发送DMA
+    DMA_Handle.Init.Direction=DMA_PERIPH_TO_MEMORY;             //存储器到外设
     DMA_Handle.Init.PeriphInc=DMA_PINC_DISABLE;                 //外设非增量模式
     DMA_Handle.Init.MemInc=DMA_MINC_ENABLE;                     //存储器增量模式
     DMA_Handle.Init.PeriphDataAlignment=DMA_PDATAALIGN_BYTE;    //外设数据长度:8位
@@ -202,42 +201,41 @@ void USART2_DMA_Config(void)
     DMA_Handle.Init.FIFOThreshold=DMA_FIFO_THRESHOLD_FULL;      
     DMA_Handle.Init.MemBurst=DMA_MBURST_SINGLE;                 //存储器突发单次传输
     DMA_Handle.Init.PeriphBurst=DMA_PBURST_SINGLE;              //外设突发单次传输
-
-    HAL_DMA_DeInit(&DMA_Handle);
+	
+	HAL_DMA_DeInit(&DMA_Handle);
     HAL_DMA_Init(&DMA_Handle);
+	
+	__HAL_LINKDMA(&UART1_Handler, hdmarx, DMA_Handle); 
+	
+	HAL_UART_Receive_DMA(&UART1_Handler, RX_BUFF, USART2_RBUFF_SIZE);
+	
+	__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF);
+	__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
 }
 
 void USART1_IRQHandler(void)
 {
-    uint32_t timeout = 0;
+    uint32_t i = 0;
 	
-	//printf("USART1_IRQHandler\n");
-
-    HAL_UART_IRQHandler(&UART1_Handler); //调用HAL库中断处理公用函数
-
-    timeout = 0;
-
-    while (HAL_UART_GetState(&UART1_Handler) != HAL_UART_STATE_READY) //等待就绪
-    {
-        timeout++; ////超时处理
-        if (timeout > HAL_MAX_DELAY)
-            break;
-    }
-
-    timeout = 0;
-    while (HAL_UART_Receive_IT(&UART1_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //一次处理完成之后，重新开启中断并设置RxXferCount为1
-    {
-        timeout++; //超时处理
-        if (timeout > HAL_MAX_DELAY)
-            break;
-    }
+	if((READ_REG(UART1_Handler.Instance->ISR)& USART_ISR_IDLE) != RESET)
+	{
+		__HAL_DMA_DISABLE(&DMA_Handle);      
+		__HAL_DMA_CLEAR_FLAG(&DMA_Handle, DMA_FLAG_TCIF3_7);  
+		
+		__HAL_DMA_ENABLE(&DMA_Handle); 
+		
+		for (i = 0; i < 10; i++)
+		{
+			printf("%x ", RX_BUFF[i]);
+		}
+		
+		__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF);
+	}
 }
 
 void USART2_IRQHandler(void)
 {
-    uint32_t timeout = 0;
-
-    //printf("USART2_IRQHandler\n");
+	uint32_t timeout = 0;
 
     HAL_UART_IRQHandler(&UART2_Handler); //调用HAL库中断处理公用函数
 
