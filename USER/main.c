@@ -6,8 +6,7 @@
 #include "sys.h"
 #include "usart.h"
 
-#define SEND_BUF_SIZE 8200
-uint8_t SendBuff[SEND_BUF_SIZE] = {"ALIENTEK Explorer STM32F4 DMA USART Test"}; //发送数据缓冲区
+extern uint8_t RX_BUFF[USART1_RBUFF_SIZE];
 
 void System_Init(void);
 
@@ -22,10 +21,8 @@ static TaskHandle_t LowPriority_Task_Handle = NULL;   /* LowPriority_Task任务�
 static TaskHandle_t MidPriority_Task_Handle = NULL;   /* MidPriority_Task任务句柄 */
 static TaskHandle_t HighPriority_Task_Handle = NULL;  /* HighPriority_Task任务句柄 */
 
-//任务句柄
-static EventGroupHandle_t Event_Handle = NULL; 
-
-uint8_t *Test_Ptr = NULL;
+//二值信号量句柄
+SemaphoreHandle_t BinarySem_Handle = NULL;
 
 int main(void)
 {
@@ -60,10 +57,11 @@ static void AppTaskCreate(void)
 	
 	taskENTER_CRITICAL();           //进入临界区
 
-	/* 创建Event_Handle */
-	Event_Handle = xEventGroupCreate();	 
-	if(Event_Handle != NULL)
-		printf("Event_Handle Create Success...\n");
+	/* 创建BinarySem */
+	BinarySem_Handle = xSemaphoreCreateBinary();	 
+	
+	if(BinarySem_Handle != NULL)
+		printf("BinarySem_Handle Create Success...\n");
 	
 	/* 创建LowPriority_Task任务 */
 	xReturn = xTaskCreate((TaskFunction_t  )LowPriority_Task,           // 任务函数
@@ -105,7 +103,8 @@ static void AppTaskCreate(void)
 
 static void LowPriority_Task(void* param)
 {
-
+	__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
+	
 	for(;;)
 	{
 		
@@ -115,8 +114,19 @@ static void LowPriority_Task(void* param)
 
 static void MidPriority_Task(void* param)
 {
+	BaseType_t xReturn = pdPASS;
+	uint32_t i = 0;
+	
 	for(;;)
 	{
+		xReturn = xSemaphoreTake(BinarySem_Handle, portMAX_DELAY);
+		
+		if(xReturn == pdPASS)
+		{
+			for(i = 0; i < 10; i++)
+				printf("%02X ", RX_BUFF[i]);
+		}
+		
 		vTaskDelay(10);
 	}
 }
@@ -125,7 +135,7 @@ static void HighPriority_Task(void* parameter)
 {
 	for(;;)
 	{
-		printf("HighPriority_Task");
+		
 		vTaskDelay(100);
 	}
 }
@@ -134,9 +144,7 @@ void System_Init(void)
 {
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
 	USART6_Init(115200);
-//	USART1_Init(115200);
-//	USART2_Init(115200);
-//	USART1_DMA_Config();
-	
+	USART1_Init(115200);
+	USART1_DMA_Config();   
 	printf("============Start============\n");
 }

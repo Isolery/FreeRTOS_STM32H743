@@ -9,6 +9,8 @@
 #define EN_USART3_RX    1
 #define EN_USART6_RX    1
 
+#define  USART1_RBUFF_SIZE            10 
+
 extern uint8_t rec_buf[1];
 	  		
 extern UART_HandleTypeDef UART1_Handler; //UART1¾ä±ú

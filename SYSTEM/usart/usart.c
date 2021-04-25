@@ -1,9 +1,12 @@
 #include "usart.h"
-//#include "delay.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+#include "delay.h"
 
-#define  USART2_RBUFF_SIZE            10 
-uint8_t  RX_BUFF[USART2_RBUFF_SIZE] = {0};
+extern SemaphoreHandle_t BinarySem_Handle;
 
+uint8_t  RX_BUFF[USART1_RBUFF_SIZE] = {0};
 
 uint8_t rec_buf[1];
 uint16_t rec16[1];
@@ -195,7 +198,8 @@ void USART1_DMA_Config(void)
     DMA_Handle.Init.MemInc=DMA_MINC_ENABLE;                     //存储器增量模式
     DMA_Handle.Init.PeriphDataAlignment=DMA_PDATAALIGN_BYTE;    //外设数据长度:8位
     DMA_Handle.Init.MemDataAlignment=DMA_MDATAALIGN_BYTE;       //存储器数据长度:8位
-    DMA_Handle.Init.Mode=DMA_NORMAL;                            //外设流控模式
+    //DMA_Handle.Init.Mode=DMA_NORMAL;                            //外设流控模式
+	DMA_Handle.Init.Mode=DMA_CIRCULAR;                           //循环模式，数组满后继续从0开始存储
     DMA_Handle.Init.Priority=DMA_PRIORITY_MEDIUM;               //中等优先级
     DMA_Handle.Init.FIFOMode=DMA_FIFOMODE_DISABLE;              
     DMA_Handle.Init.FIFOThreshold=DMA_FIFO_THRESHOLD_FULL;      
@@ -207,30 +211,39 @@ void USART1_DMA_Config(void)
 	
 	__HAL_LINKDMA(&UART1_Handler, hdmarx, DMA_Handle); 
 	
-	HAL_UART_Receive_DMA(&UART1_Handler, RX_BUFF, USART2_RBUFF_SIZE);
+	HAL_UART_Receive_DMA(&UART1_Handler, RX_BUFF, USART1_RBUFF_SIZE);
 	
-	__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF);
-	__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
+	__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF); 
+	//__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
 }
 
 void USART1_IRQHandler(void)
 {
-    uint32_t i = 0;
+	uint32_t ulReturn;
+	BaseType_t pxHigherPriorityTaskWoken;
+	
+	/* 进入临界段 */
+	ulReturn = taskENTER_CRITICAL_FROM_ISR();
 	
 	if((READ_REG(UART1_Handler.Instance->ISR)& USART_ISR_IDLE) != RESET)
 	{
 		__HAL_DMA_DISABLE(&DMA_Handle);      
 		__HAL_DMA_CLEAR_FLAG(&DMA_Handle, DMA_FLAG_TCIF3_7);  
 		
+		WRITE_REG(((DMA_Stream_TypeDef *)DMA_Handle.Instance)->NDTR , USART1_RBUFF_SIZE);
+		
 		__HAL_DMA_ENABLE(&DMA_Handle); 
 		
-		for (i = 0; i < 10; i++)
-		{
-			printf("%x ", RX_BUFF[i]);
-		}
+		xSemaphoreGiveFromISR(BinarySem_Handle, &pxHigherPriorityTaskWoken);
+		
+		//printf("Release Sema\n");
+		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 		
 		__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF);
 	}
+	
+	/* 退出临界段 */
+	taskEXIT_CRITICAL_FROM_ISR(ulReturn);
 }
 
 void USART2_IRQHandler(void)
