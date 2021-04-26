@@ -30,9 +30,9 @@ uint32_t  tFeedDog = 0;
 
 /*数组定义区*/																		
 uint8_t rxUart1[20];
-uint8_t rxUart1_125K[20];
-uint8_t data_from_125K[20];																	//串口0数据缓存区, 接收RLM传输的数据																	//串口1数据缓存区
-uint8_t EpcData[12] = {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; //从RLM帧数据中提取有用的数据, E1 -- 有线   E0 -- 无线
+uint8_t rxUart1_125K[20];                                                                   //串口1数据缓存区
+uint8_t data_from_125K[20];																	//串口0数据缓存区, 接收RLM传输的数据																	
+//uint8_t EpcData[12] = {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; //从RLM帧数据中提取有用的数据, E1 -- 有线   E0 -- 无线
 uint8_t storeFdirYGD[13];																	//存储正向预告点1
 uint8_t storeFdirYGD2[13];																	//存储正向预告点2
 uint8_t storeRedirDD[13];																	//存储反向定点
@@ -307,7 +307,7 @@ void process_data(const uint8_t* data)
 	// 02 41 41 00 00 00 00 00 00 00 00 0d 0a 03 //  AA 00 -- 机感握手码
 	if((data[6] == 0x34) && (((data[2] >= '0') && (data[2] <= '9')) || ((data[2] >= 'A') && (data[2] <= 'F'))))
 	{
-		transfer(0);
+		transfer(data, 0);
 		//ledtype = temp[2];
 		//TWISTART();    //TWI发送数据
 	}
@@ -317,29 +317,29 @@ void process_data(const uint8_t* data)
 	&& (data[9] == 0x30) && (data[10] == 0x30) && (data[11] == 0x0d) && (data[12] == 0x0a) \
 	&& (data[13] == 0x03))
 	{
-		transfer(1);
+		transfer(data, 1);
 		//ledtype = 0;
 		//TWISTART();   //TWI发送数据
 	}
 }
 
-void transfer(uint8_t handshake)
+void transfer(const uint8_t* data, uint8_t handshake)
 {
 	uint8_t i;
 	
 	for(i = 1; i < 11; i++)
 	{
-		if((data_from_125K[i] >= '0') && (data_from_125K[i] <= '9'))
+		if((data[i] >= '0') && (data[i] <= '9'))
 		{
-			temp[i] = data_from_125K[i] - 0x30;
+			temp[i] = data[i] - 0x30;
 		}
-		else if((data_from_125K[i] >= 'A') && (data_from_125K[i] <= 'F'))
+		else if((data[i] >= 'A') && (data[i] <= 'F'))
 		{
-			temp[i] = data_from_125K[i] - 0x37;
+			temp[i] = data[i] - 0x37;
 		}
 		else
 		{
-			temp[i] = data_from_125K[i];
+			temp[i] = data[i];
 		}
 	}
 	

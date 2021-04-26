@@ -32,7 +32,7 @@ void check_preportdata(uint8_t* p_EpcData, uint8_t* p_storeRedirDD, uint8_t* p_s
 uint8_t check_portdata(uint8_t* p_EpcData, uint8_t* p_storeFdirYGD, uint8_t* p_storeFdirYGD2, uint8_t* p_storeRedirDD, uint8_t* p_storeLastportdata);
 void Time_up_Clear(void);
 void process_data(const uint8_t* data);
-void transfer(uint8_t handshake);
+void transfer(const uint8_t* data, uint8_t handshake);
 
 #endif
 

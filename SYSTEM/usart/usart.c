@@ -5,6 +5,7 @@
 #include "delay.h"
 
 extern SemaphoreHandle_t BinarySem_Handle;
+//extern QueueHandle_t Test_Queue;
 
 uint8_t  RX_BUFF[USART1_RBUFF_SIZE] = {0};
 
@@ -30,6 +31,7 @@ void USART1_Init(u32 bound)
     UART1_Handler.Init.Mode = UART_MODE_TX_RX;          //收发模式
     HAL_UART_Init(&UART1_Handler);                      //HAL_UART_Init()会使能UART1
 
+	__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_ERR);
     //HAL_UART_Receive_IT(&UART1_Handler, rec_buf, 1);  // 使用DMA+IDLE中断模式
 }
 
@@ -177,8 +179,8 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
         HAL_GPIO_Init(GPIOC, &GPIO_InitSturct); //初始化PC7
 
 #if EN_USART6_RX
-        HAL_NVIC_EnableIRQ(USART6_IRQn);         //使能USART2中断通道
-        HAL_NVIC_SetPriority(USART6_IRQn, 3, 3); //抢占优先级3，子优先级3
+        //HAL_NVIC_EnableIRQ(USART6_IRQn);         //使能USART6中断通道
+        HAL_NVIC_SetPriority(USART6_IRQn, 6, 0); //抢占优先级6，子优先级0
 #endif
     }
 
@@ -220,6 +222,7 @@ void USART1_DMA_Config(void)
 void USART1_IRQHandler(void)
 {
 	uint32_t ulReturn;
+	//uint8_t  data_length, i;
 	BaseType_t pxHigherPriorityTaskWoken;
 	
 	/* 进入临界段 */
@@ -230,6 +233,8 @@ void USART1_IRQHandler(void)
 		__HAL_DMA_DISABLE(&DMA_Handle);      
 		__HAL_DMA_CLEAR_FLAG(&DMA_Handle, DMA_FLAG_TCIF3_7);  
 		
+		//data_length = USART1_RBUFF_SIZE - __HAL_DMA_GET_COUNTER(&DMA_Handle);
+		
 		WRITE_REG(((DMA_Stream_TypeDef *)DMA_Handle.Instance)->NDTR , USART1_RBUFF_SIZE);
 		
 		__HAL_DMA_ENABLE(&DMA_Handle); 
@@ -237,9 +242,19 @@ void USART1_IRQHandler(void)
 		xSemaphoreGiveFromISR(BinarySem_Handle, &pxHigherPriorityTaskWoken);
 		
 		//printf("Release Sema\n");
+		
+//		printf("data_length = %d\n", data_length);
+		
+//		for(i = 0; i < data_length; i++)
+//		{
+//			xQueueSendFromISR(Test_Queue, &RX_BUFF[i], &pxHigherPriorityTaskWoken);
+//		}
+//		xQueueSendToFrontFromISR(Test_Queue, &data_length, &pxHigherPriorityTaskWoken);
+		
 		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
 		
 		__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF);
+		__HAL_UART_CLEAR_IT(&UART1_Handler, USART_ICR_FECF);    //避免出现帧错误
 	}
 	
 	/* 退出临界段 */

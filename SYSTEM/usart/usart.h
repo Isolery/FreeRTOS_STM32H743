@@ -9,7 +9,7 @@
 #define EN_USART3_RX    1
 #define EN_USART6_RX    1
 
-#define  USART1_RBUFF_SIZE            10 
+#define  USART1_RBUFF_SIZE            25 
 
 extern uint8_t rec_buf[1];
 	  		
