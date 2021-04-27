@@ -9,6 +9,7 @@
 #include "RLM300.h"
 #include "App.h"
 #include "delay.h"
+#include "dsqueue.h"
 
 void nop_printf(const char* str, ...)
 {
@@ -40,9 +41,10 @@ uint8_t data_900M[20] = {0xAA, 0x11, 0x10, 0x00, 0x30, 0xAA, 0xBB, 0xE1, 0x00, 0
 uint8_t EpcData[12] =   {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; 
 uint8_t FrameData[20] = {0xAA, 0x11}; 
 uint8_t rxUart6[10];
-uint8_t storedata[39] = {'[', '2', '0', '2', '1', '/', '0', '3', '/', '2', '4', \
+uint8_t storedata[STOREDATA_LEN] = {'[', '2', '0', '2', '1', '/', '0', '3', '/', '2', '4', \
 	                      ' ', '1', '4', ':', '2', '5', ':', '1', '5',']', '0', '2', '5', '3', '3', \
                           '2', '4', '4', '0', '2', '5', '3', '0', '0', '1', '1', '\r', '\n'};
+uint8_t master_data[5];
 
 extern uint8_t RX_BUFF[USART1_RBUFF_SIZE];
 
@@ -54,6 +56,7 @@ static void MidPriority_Task(void* pvParameters);   /* MidPriority_Task任务实
 static void ReceiveFromMachineSensor_Task(void* pvParameters);  /* ReceiveFromMachineSensor_Task任务实现 */
 static void ProcessData_Task(void* pvParameters);
 static void StoreData_Task(void* pvParameters);
+static void Queue_Task(void* pvParameters);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
@@ -61,7 +64,8 @@ static TaskHandle_t LowPriority_Task_Handle = NULL;   /* LowPriority_Task任务�
 static TaskHandle_t MidPriority_Task_Handle = NULL;   /* MidPriority_Task任务句柄 */
 static TaskHandle_t ReceiveFromMachineSensor_Task_Handle = NULL;  /* ReceiveFromMachineSensor_Task任务句柄 */
 static TaskHandle_t ProcessData_Task_Handle = NULL;	
-static TaskHandle_t StoreData_Task_Handle = NULL;							  
+static TaskHandle_t StoreData_Task_Handle = NULL;
+static TaskHandle_t Queue_Task_Handle = NULL;						  
 
 //二值信号量句柄
 SemaphoreHandle_t BinarySem_Handle = NULL;
@@ -193,6 +197,17 @@ static void AppTaskCreate(void)
 
 	if(pdPASS == xReturn)               
 		PRINTF("StoreData_Task Create Success...\n");
+	
+	/* 创建Queue_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )Queue_Task,             // 任务函数
+	                      (const char*     )"Queue_Task",           // 任务名称
+						  (uint16_t        )1024,                        // 任务堆栈大小
+						  (void*           )NULL,                       // 传递给任务函数的参数
+						  (UBaseType_t     )4,                          // 任务优先级
+						  (TaskHandle_t*   )&Queue_Task_Handle);    // 任务控制块指针  							  
+
+	if(pdPASS == xReturn)               
+		PRINTF("Queue_Task Create Success...\n");
 
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 
@@ -324,8 +339,8 @@ static void ProcessData_Task(void* parameter)
 	for(;;)
 	{
 		xReturn = xQueueReceive(Data125K_Queue,      /* 消息队列的句柄 */
-							    &recv_data,		 /* 接收的消息内容 */
-								portMAX_DELAY);  /* 等待时间一直等 */
+							    &recv_data,		     /* 接收的消息内容 */
+								portMAX_DELAY);      /* 等待时间一直等 */
 		
 		if(xReturn == pdTRUE)
 		{
@@ -335,9 +350,9 @@ static void ProcessData_Task(void* parameter)
 		for(i = 0; i < data_length; i++)
 		{
 			xReturn = xQueueReceive(Data125K_Queue,      /* 消息队列的句柄 */
-									&recv_data,		 /* 接收的消息内容 */
-									portMAX_DELAY);  /* 等待时间一直等 */
-			
+									&recv_data,		     /* 接收的消息内容 */
+									portMAX_DELAY);      /* 等待时间一直等 */
+			 
 			if(xReturn == pdTRUE)
 			{
 				data[i] = recv_data;
@@ -386,12 +401,14 @@ static void ProcessData_Task(void* parameter)
 	}
 }
 
-static void StoreData_Task(void* parameter)
+static void Queue_Task(void* parameter)
 {
+	BaseType_t xReturn = pdPASS;
 	EventBits_t r_event;
-	uint8_t  res;
-	uint32_t wcnt;
-
+	u8 hour,min,sec,ampm;
+	u8 year,month,date,week;
+	Queue *q = init();
+	
 	for(;;)
 	{
 		r_event = xEventGroupWaitBits(Event_Handle,    /* 事件对象句柄 */
@@ -399,35 +416,126 @@ static void StoreData_Task(void* parameter)
 									  pdTRUE,          /* 退出时清除事件位 */
 									  pdTRUE,          /* pdTRUE:满足感兴趣的所有事件 pdFALSE:满足感兴趣的任一事件*/
 									  portMAX_DELAY);  /* 指定超时事件,一直等 */
-
-		if((r_event & (DataProcessEnd_Event|UART6ReceiveEnd_Event)) != 0)	
+		
+		if((r_event & (DataProcessEnd_Event|UART6ReceiveEnd_Event)) != 0)
 		{
-			printf("StoreData_Task Running...\n");
+			PRINTF("Queue_Task Running...\n");
+			master_data[0] = rxUart6[1];    // 手柄
+			master_data[1] = rxUart6[2];    // 速度
+			master_data[2] = rxUart6[3];    // 时
+			master_data[3] = rxUart6[4];    // 分
+			master_data[4] = rxUart6[5];    // 秒
 			
-			res = f_open(file1,(const TCHAR*)"0:/22data1.txt", FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
-			if(res == FR_OK)
+			RTC_Get_Time(&hour,&min,&sec,&ampm);
+			RTC_Get_Date(&year,&month,&date,&week);
+
+			master_data[2] = (master_data[2] <= 0x17) ? master_data[2] : hour;
+			master_data[3] = (master_data[3] <= 0x3B) ? master_data[3] : min;
+			master_data[4] = (master_data[4] <= 0x3B) ? master_data[4] : sec;
+			
+			storedata[3] = year/10 + 0x30;     // 2
+			storedata[4] = year%10 + 0x30;     // 1
+			storedata[6] = month/10 + 0x30;    // 0
+			storedata[7] = month%10 + 0x30;    // 4
+			storedata[9] = date/10 + 0x30;     // 0
+			storedata[10] = date%10 + 0x30;    // 8
+			storedata[12] = master_data[2]/10 + 0x30;    // 时
+			storedata[13] = master_data[2]%10 + 0x30;    // 时
+			storedata[15] = master_data[3]/10 + 0x30;    // 分
+			storedata[16] = master_data[3]%10 + 0x30;    // 分
+			storedata[18] = master_data[4]/10 + 0x30;    // sec
+			storedata[19] = master_data[4]%10 + 0x30;    // sec
+			
+			storedata[33] = (master_data[0]/16 >= 10) ? master_data[0]/16 + 0x37 : master_data[0]/16 + 0x30;    // 手柄
+			storedata[34] = (master_data[0]%16 >= 10) ? master_data[0]%16 + 0x37 : master_data[0]%16 + 0x30;
+			storedata[35] = (master_data[1]/16 >= 10) ? master_data[1]/16 + 0x37 : master_data[1]/16 + 0x30;    // 速度
+			storedata[36] = (master_data[1]%16 >= 10) ? master_data[1]%16 + 0x37 : master_data[1]%16 + 0x30;
+
+			push(q, storedata);
+
+			if(!isEmpty(q))
 			{
-				f_lseek(file1, 0);
-				res = f_write(file1,(void*)storedata, sizeof(storedata), &wcnt);	//写入数据
-				if(res == FR_OK)
+				//任务通知
+				xReturn = xTaskNotify(StoreData_Task_Handle,     // 任务句柄
+		                             (uint32_t)&q,                     // 发送的数据 
+		                             eSetValueWithOverwrite);    // 覆盖当前通知
+		
+				if(xReturn == pdPASS)
 				{
-					printf("fwrite ok,write data length is:%d byte\r\n\r\n",wcnt);	//打印写入成功提示,并打印写入的字节数			
-				}else printf("fwrite error:%d\r\n",res);	//打印错误代码
-			}else printf("fopen error:%d\r\n",res);			//打印错误代码
-			f_close(file1);									//结束写入
-		}						
+					//printf("TaskNotify Send to StoreData_Task Success...\n");
+				}
+					
+			
+			}
+		}
 		else
 		{
-			printf("Event Error...\n");
+			PRINTF("Event Error...\n");
 		}
+		
+		vTaskDelay(1);
+	}
+}
 
+static void StoreData_Task(void* parameter)
+{
+	BaseType_t xReturn = pdPASS;
+	uint32_t *recv;
+	Queue * q = NULL;
+	uint8_t *data;
+	int i;
+
+	for(;;)
+	{
+		xReturn = xTaskNotifyWait(0x0,               // 进入函数的时候不清除任务bit
+								  0xFFFFFFFF,        // 退出函数的时候清除所有的bit
+								  (uint32_t *)&recv, // 保存任务的通知值
+		                          portMAX_DELAY);    // 阻塞时间
+
+		if(pdTRUE == xReturn)
+		{
+			//printf("StoreData_Task receive data is %x \n", *recv);
+			q = (Queue *)(*recv);
+			//printf("q->front = %d\n", q->front);
+			//printf("q->rear = %d\n", q->rear);
+
+			while(!isEmpty(q))
+			{
+				data = pop(q);
+				
+				for(i = 0; i < STOREDATA_LEN; i++)
+				{
+					PRINTF("%c", data[i]);
+				}		
+				
+				PRINTF("\n");
+				delay_ms(1000);
+			}
+
+			// res = f_open(file1,(const TCHAR*)"0:/22data1.txt", FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+			// if(res == FR_OK)
+			// {
+			// 	f_lseek(file1, 0);
+			// 	res = f_write(file1,(void*)storedata, sizeof(storedata), &wcnt);	//写入数据
+			// 	if(res == FR_OK)
+			// 	{
+			// 		PRINTF("fwrite ok,write data length is:%d byte\r\n\r\n",wcnt);	//打印写入成功提示,并打印写入的字节数			
+			// 	}else PRINTF("fwrite error:%d\r\n",res);	//打印错误代码
+			// }else PRINTF("fopen error:%d\r\n",res);			//打印错误代码
+			// f_close(file1);									//结束写入
+		}
+									
 		vTaskDelay(1);
 	}
 }
 
 void System_Init(void)
 {
+	u8 hour,min,sec,ampm;
+	u8 year,month,date,week;
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
+	delay_init(400);
+	RTC_Init(); 
 	USART6_Init(115200);
 	USART1_Init(115200);
 	USART1_DMA_Config();  
@@ -436,6 +544,11 @@ void System_Init(void)
 	//NAND_EraseChip();
 	FTL_Init();
 	App_Init();
+
+	RTC_Get_Time(&hour,&min,&sec,&ampm);
+	printf("Time:%02d:%02d:%02d\n",hour,min,sec); 	
+	RTC_Get_Date(&year,&month,&date,&week);
+	printf("Date:20%02d-%02d-%02d\n",year,month,date); 
 	
 	PRINTF("============Start============\n");
 }

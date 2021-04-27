@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER, STM32H743xx,USE_USB_FS</Define>
               <Undefine></Undefine>
-              <IncludePath>..\CORE;..\USER;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\USMART;..\MALLOC;..\HARDWARE\MPU;..\HARDWARE\NAND;..\FATFS\exfuns;..\FATFS\source;..\TEXT;..\USB\USB_APP;..\USB\STM32_USB_Host_Library\Class\MSC\Inc;..\USB\STM32_USB_Host_Library\Core\Inc;..\HARDWARE\CRC;..\HARDWARE\DMA;..\HARDWARE\DTU;..\HARDWARE\RLM300;..\HARDWARE\String;..\SYSTEM\timer;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\HARDWARE\RTC;..\HARDWARE\STMFLASH;..\FreeRTOS\Source\include;..\FreeRTOS\Source\portable\RVDS\ARM_CM7\r0p1;..\HARDWARE\App</IncludePath>
+              <IncludePath>..\CORE;..\USER;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\USMART;..\MALLOC;..\HARDWARE\MPU;..\HARDWARE\NAND;..\FATFS\exfuns;..\FATFS\source;..\TEXT;..\USB\USB_APP;..\USB\STM32_USB_Host_Library\Class\MSC\Inc;..\USB\STM32_USB_Host_Library\Core\Inc;..\HARDWARE\CRC;..\HARDWARE\DMA;..\HARDWARE\DTU;..\HARDWARE\RLM300;..\HARDWARE\String;..\SYSTEM\timer;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\HARDWARE\RTC;..\HARDWARE\STMFLASH;..\FreeRTOS\Source\include;..\FreeRTOS\Source\portable\RVDS\ARM_CM7\r0p1;..\HARDWARE\App;..\HARDWARE\Queue</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -927,6 +927,11 @@
               <FileName>malloc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\MALLOC\malloc.c</FilePath>
+            </File>
+            <File>
+              <FileName>rtc.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\HARDWARE\RTC\rtc.c</FilePath>
             </File>
           </Files>
         </Group>
