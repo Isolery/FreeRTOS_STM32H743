@@ -32,7 +32,7 @@ uint32_t  tFeedDog = 0;
 uint8_t rxUart1[20];
 uint8_t rxUart1_125K[20];                                                                   //串口1数据缓存区
 uint8_t data_from_125K[20];																	//串口0数据缓存区, 接收RLM传输的数据																	
-//uint8_t EpcData[12] = {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; //从RLM帧数据中提取有用的数据, E1 -- 有线   E0 -- 无线
+uint8_t EpcData[12] = {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; //从RLM帧数据中提取有用的数据, E1 -- 有线   E0 -- 无线
 uint8_t storeFdirYGD[13];																	//存储正向预告点1
 uint8_t storeFdirYGD2[13];																	//存储正向预告点2
 uint8_t storeRedirDD[13];																	//存储反向定点
@@ -50,7 +50,7 @@ void Deal_RLM_Data(void)
 {
 	if(DecodeProtocol(rxUart1, EpcData))    //对RLM的数据进行校验，只有通过校验的数据才能进行下一步的处理
     {
-		RuleCheck(EpcData);
+		//RuleCheck(EpcData);
 	}
 	else
 	{
@@ -90,7 +90,7 @@ uint8_t DecodeProtocol(const uint8_t* p_rxUart1, uint8_t* p_EpcData)
 * 输入参数：p_EpcData --> EpcData
 * 返 回 值 ：void
 ************************************************************************************************/
-void RuleCheck(const uint8_t* p_EpcData)
+void RuleCheck(const uint8_t* p_EpcData, uint8_t* flag)
 {
 	if(p_EpcData[6] == 0x01)    //如果是预告点
 	{
@@ -98,21 +98,25 @@ void RuleCheck(const uint8_t* p_EpcData)
 		tCountYGD = 0;     
 		/*检查预告点，正向预告点 or 反向预告点*/             
 		check_preportdata(EpcData, storeRedirDD, storeFdirYGD, storeFdirYGD2);
-		//printf("yugaodian \n");
+		printf("yugaodian \n");
 	}
 		 
 	if(p_EpcData[6] == 0x02)    //如果是地感
 	{
 		/*检查地感，正向 or 反向  上报 or 忽略*/
-		//printf("dingdian \n");
+		printf("dingdian \n");
 		if(check_portdata(EpcData, storeFdirYGD, storeFdirYGD2, storeRedirDD, storeLastportdata)) 
 		{
 			//FrameProcess(FrameData, EpcData, 0x11, sizeof(EpcData));       
 			ledType = EpcData[7];
 			flag_LedON = BEGIN;
 			//MPCM_USART1_TransmitFrame(FrameData, 0xC1);    //发送给WirelessCom_1 --> 通信板第一个CPU
-			flag_NewData = TRUE;
-			//printf("dingdian ok \n");
+			*flag = TRUE;
+			printf("dingdian ok \n");
+		}
+		else
+		{
+			flag = FALSE;
 		}
 	}
 }

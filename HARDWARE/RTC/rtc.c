@@ -177,8 +177,8 @@ u8 RTC_Init(void)
 		RTC->WPR=0xFF;				//使能RTC寄存器写保护  
 		if(bkpflag!=0X5050)			//BKP0的内容既不是0X5050,也不是0X5051,说明是第一次配置,需要设置时间日期.
 		{
-			RTC_Set_Time(16,20,00,0);	//设置时间
-			RTC_Set_Date(21,4,8,3);	//设置日期
+			RTC_Set_Time(16,28,00,0);	//设置时间
+			RTC_Set_Date(21,4,28,3);	//设置日期
 		}
 		if(retry==0)RTC_Write_BKR(0,0X5050);	//标记已经初始化过了,使用LSI
 		else RTC_Write_BKR(0,0X5050);			//标记已经初始化过了,使用LSE

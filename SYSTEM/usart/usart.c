@@ -3,6 +3,7 @@
 #include "task.h"
 #include "semphr.h"
 #include "delay.h"
+#include "config.h"
 
 extern SemaphoreHandle_t BinarySem_Handle;
 //extern QueueHandle_t Test_Queue;
@@ -83,9 +84,15 @@ void USART6_Init(uint32_t bound)
 
     USART6->CR1 |= (1<<11);    //WAKE: 接收器唤醒方式 ==> 地址标记
     USART6->CR2 &= ~0xFF000000;   //地址
-    USART6->CR2 |= 0xC1000000;
+	
+	#if CURRENTCPU == CPU1
+	USART6->CR2 |= 0xC1000000;
+	#else
+	USART6->CR2 |= 0xC2000000;
+	#endif
+    
 	USART6->CR2 |= (1<<4);    //7位地址检测
-    USART6->CR1 |= (1<<13);    //静默模式使能
+    USART6->CR1 |= (1<<13);   //静默模式使能
     USART6->RQR |= (1<<2);
 
     USART6->CR1 |= (1<<0);    //使能USART6

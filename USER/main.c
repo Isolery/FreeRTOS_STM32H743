@@ -12,32 +12,27 @@
 #include "dsqueue.h"
 #include "stmflash.h"
 #include "config.h"
+#include "RLM300.h"
+#include "DTU.h"
 
 extern FIL *file1;	  		//文件1
 extern FIL *file2;	  		//文件2
 
-FRESULT fr;
-UINT brs;
-
-USBH_HandleTypeDef hUSBHost;
+extern uint8_t RX_BUFF[USART1_RBUFF_SIZE];
 
 uint8_t data_125K[14] = {0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0D, 0x0A, 0x03};
 uint8_t data_900M[20] = {0xAA, 0x11, 0x10, 0x00, 0x30, 0xAA, 0xBB, 0xE1, 0x00, 0x00, 0x00, 0x00, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53, 0x55};
-uint8_t EpcData[12] =   {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; 
 uint8_t FrameData[20] = {0xAA, 0x11}; 
 uint8_t rxUart6[10];
+uint8_t master_data[5];
 uint8_t storedata[STOREDATA_LEN] = {'[', '2', '0', '2', '1', '/', '0', '3', '/', '2', '4', \
 	                      ' ', '1', '4', ':', '2', '5', ':', '1', '5',']', '0', '2', '5', '3', '3', \
                           '2', '4', '4', '0', '2', '5', '3', '0', '0', '1', '1', '\r', '\n'};
-uint8_t master_data[5];
 
-extern uint8_t RX_BUFF[USART1_RBUFF_SIZE];
-
-void System_Init(void);
-
+static void System_Init(void);
 static void AppTaskCreate(void);
-static void LowPriority_Task(void* pvParameters);   /* LowPriority_Task任务实现 */
-static void ReceiveFromMachineSensor_Task(void* pvParameters);  /* ReceiveFromMachineSensor_Task任务实现 */
+static void LowPriority_Task(void* pvParameters);   
+static void ReceiveFromMachineSensor_Task(void* pvParameters);  
 static void ProcessData_Task(void* pvParameters);
 static void StoreData_Task(void* pvParameters);
 static void Queue_Task(void* pvParameters);
@@ -45,8 +40,8 @@ static void Swtmr1_Callback(void* parameter);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
-static TaskHandle_t LowPriority_Task_Handle = NULL;   /* LowPriority_Task任务句柄 */
-static TaskHandle_t ReceiveFromMachineSensor_Task_Handle = NULL;  /* ReceiveFromMachineSensor_Task任务句柄 */
+static TaskHandle_t LowPriority_Task_Handle = NULL;   
+static TaskHandle_t ReceiveFromMachineSensor_Task_Handle = NULL;  
 static TaskHandle_t ProcessData_Task_Handle = NULL;	
 static TaskHandle_t StoreData_Task_Handle = NULL;
 static TaskHandle_t Queue_Task_Handle = NULL;						  
@@ -55,11 +50,9 @@ static TaskHandle_t Queue_Task_Handle = NULL;
 SemaphoreHandle_t BinarySem_Handle = NULL;
 
 //消息队列任务句柄
-static QueueHandle_t Data125K_Queue = NULL;
-static QueueHandle_t Data900M_Queue = NULL;
+static QueueHandle_t Data_Queue = NULL;
 
-#define  Data125K_LEN    15    /* 队列的长度，最大可包含多少个消息 */
-#define  Data900M_LEN    25    /* 队列的长度，最大可包含多少个消息 */
+#define  Data_LEN        25    /* 队列的长度，最大可包含多少个消息 */
 #define  QUEUE_SIZE      1     /* 队列中每个消息大小（字节） */
 
 //事件组任务句柄
@@ -71,6 +64,7 @@ static EventGroupHandle_t Event_Handle = NULL;
 // 软件定时器句柄
 static TimerHandle_t Swtmr_Handle = NULL;
 
+// 主函数: 运行xTaskCreate任务，然后开启任务调度，将CPU控制权交给RTOS
 int main(void)
 {
 	BaseType_t xReturn = pdPASS;/* 定义一个创建信息返回值，默认为pdPASS */
@@ -106,37 +100,26 @@ static void AppTaskCreate(void)
 
 	/* 创建BinarySem */
 	BinarySem_Handle = xSemaphoreCreateBinary();
-
 	if(BinarySem_Handle != NULL)
 		printf("BinarySem_Handle Create Success...\n");
 	
-	/* 创建消息队列Data125K_Queue */
-	Data125K_Queue = xQueueCreate((UBaseType_t) Data125K_LEN,    // 消息队列的长度
-							     (UBaseType_t) QUEUE_SIZE);      // 消息的大小
-	
-	if(Data125K_Queue != NULL)
-		printf("Create Data125K_Queue Success...\n");
-	
-	/* 创建消息队列Data900M_Queue */
-	Data900M_Queue = xQueueCreate((UBaseType_t) Data900M_LEN,    // 消息队列的长度
-							     (UBaseType_t) QUEUE_SIZE);      // 消息的大小
-	
-	if(Data900M_Queue != NULL)
-		printf("Create Data900M_Queue Success...\n");
+	/* 创建消息队列Data_Queue */
+	Data_Queue = xQueueCreate((UBaseType_t) Data_LEN,    // 消息队列的长度
+							  (UBaseType_t) QUEUE_SIZE);      // 消息的大小
+	if(Data_Queue != NULL)
+		printf("Create Data_Queue Success...\n");
 	
 	/* 创建Event_Handle */
 	Event_Handle = xEventGroupCreate();	 
-	
 	if(Event_Handle != NULL)
 		printf("Event_Handle Create Success...\n");
 	
 	/* 创建软件定时器Swtmr_Handle */
 	Swtmr_Handle = xTimerCreate((const char*		)"AutoReloadTimer",
-                               (TickType_t			)100,/* 定时器周期 100(tick) */
-                               (UBaseType_t		)pdTRUE,/* 周期模式 */
-                               (void*				  )1,/* 为每个计时器分配一个索引的唯一ID */
-                               (TimerCallbackFunction_t)Swtmr1_Callback); 
-							
+                               (TickType_t			)100,   /* 定时器周期 100(tick) */
+                               (UBaseType_t		)pdTRUE,    /* 周期模式 */
+                               (void*				  )1,   /* 为每个计时器分配一个索引的唯一ID */
+                               (TimerCallbackFunction_t)Swtmr1_Callback); 					
 	if(Swtmr_Handle != NULL)       
 	{
 		printf("Swtmr_Handle Create Success...\n");
@@ -150,7 +133,6 @@ static void AppTaskCreate(void)
 						  (void*           )NULL,                   // 传递给任务函数的参数
 						  (UBaseType_t     )2,                      // 任务优先级
 						  (TaskHandle_t*   )&LowPriority_Task_Handle);  // 任务控制块指针  
-
 	if(pdPASS == xReturn)               
 		printf("LowPriority_Task Create Success...\n");
 	
@@ -160,8 +142,7 @@ static void AppTaskCreate(void)
 						  (uint16_t        )512,                 // 任务堆栈大小
 						  (void*           )NULL,                // 传递给任务函数的参数
 						  (UBaseType_t     )4,                   // 任务优先级
-						  (TaskHandle_t*   )&ReceiveFromMachineSensor_Task_Handle);  // 任务控制块指针  
-						  
+						  (TaskHandle_t*   )&ReceiveFromMachineSensor_Task_Handle);  // 任务控制块指针  						  
 	if(pdPASS == xReturn)               
 		printf("ReceiveFromMachineSensor_Task Create Success...\n");					  
 						  
@@ -171,8 +152,7 @@ static void AppTaskCreate(void)
 						  (uint16_t        )512,                        // 任务堆栈大小
 						  (void*           )NULL,                       // 传递给任务函数的参数
 						  (UBaseType_t     )4,                          // 任务优先级
-						  (TaskHandle_t*   )&ProcessData_Task_Handle);  // 任务控制块指针  
-						  
+						  (TaskHandle_t*   )&ProcessData_Task_Handle);  // 任务控制块指针  					  
 	if(pdPASS == xReturn)               
 		printf("ProcessData_Task Create Success...\n");					  
 
@@ -183,7 +163,6 @@ static void AppTaskCreate(void)
 						  (void*           )NULL,                       // 传递给任务函数的参数
 						  (UBaseType_t     )4,                          // 任务优先级
 						  (TaskHandle_t*   )&StoreData_Task_Handle);    // 任务控制块指针  							  
-
 	if(pdPASS == xReturn)               
 		printf("StoreData_Task Create Success...\n");
 	
@@ -194,7 +173,6 @@ static void AppTaskCreate(void)
 						  (void*           )NULL,                       // 传递给任务函数的参数
 						  (UBaseType_t     )4,                          // 任务优先级
 						  (TaskHandle_t*   )&Queue_Task_Handle);    // 任务控制块指针  							  
-
 	if(pdPASS == xReturn)               
 		printf("Queue_Task Create Success...\n");
 
@@ -210,8 +188,8 @@ static void LowPriority_Task(void* param)
 	
 	for(;;)
 	{
-		//PRINTF("LowPriority_Task\n");
 		USBH_Process(&hUSBHost);
+		Time_up_Clear();
 		vTaskDelay(1);
 	}
 }
@@ -232,11 +210,11 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 		{
 			for(i = 0; i < 25; i++)
 			{
-				PRINTF("%02X ", RX_BUFF[i]);
+				//PRINTF("%02X ", RX_BUFF[i]);
 				raw_data[i] = RX_BUFF[i];
 			}
 			PRINTF("\n");
-			memset(RX_BUFF, 0, 25);
+			memset((uint8_t*)RX_BUFF, 0, 25);
 				
 			if(raw_data[0] == 0x02)    // 125K数据
 			{
@@ -245,11 +223,11 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 				{
 					data_length = 14;
 					
-					xQueueSendToFront(Data125K_Queue, &data_length, 0);
-					
+					//通过消息队列将数据发送给下一个任务
+					xQueueSendToFront(Data_Queue, &data_length, 0);
 					for(i = 0; i < data_length; i++)
 					{
-						xQueueSend(Data125K_Queue, &raw_data[i], 0);
+						xQueueSend(Data_Queue, &raw_data[i], 0);
 					}
 				}
 			}
@@ -257,6 +235,23 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 			else if(raw_data[0] == 0xAA)    // 900M数据
 			{
 				//进一步判断是否是完整的900M数据
+				if(raw_data[raw_data[1]+2] == 0x55)
+				{
+					for(i = 0; i < 12; i++)
+					{
+						EpcData[i] = raw_data[i+7];
+						//PRINTF("%02x ", EpcData[i]);
+					}
+					
+					data_length = 12;
+					
+					//通过消息队列将数据发送给下一个任务
+					xQueueSendToFront(Data_Queue, &data_length, 0);
+					for(i = 0; i < data_length; i++)
+					{
+						xQueueSend(Data_Queue, &EpcData[i], 0);
+					}
+				}
 			}
 			
 			else
@@ -275,10 +270,11 @@ static void ProcessData_Task(void* parameter)
 	uint32_t recv_data;
 	uint8_t  data_length, i;
 	uint8_t  data[14] = {0};
+	uint8_t  flag = FALSE;
 	
 	for(;;)
 	{
-		xReturn = xQueueReceive(Data125K_Queue,      /* 消息队列的句柄 */
+		xReturn = xQueueReceive(Data_Queue,          /* 消息队列的句柄 */
 							    &recv_data,		     /* 接收的消息内容 */
 								portMAX_DELAY);      /* 等待时间一直等 */
 		
@@ -289,7 +285,7 @@ static void ProcessData_Task(void* parameter)
 			
 		for(i = 0; i < data_length; i++)
 		{
-			xReturn = xQueueReceive(Data125K_Queue,      /* 消息队列的句柄 */
+			xReturn = xQueueReceive(Data_Queue,          /* 消息队列的句柄 */
 									&recv_data,		     /* 接收的消息内容 */
 									portMAX_DELAY);      /* 等待时间一直等 */
 			 
@@ -306,36 +302,55 @@ static void ProcessData_Task(void* parameter)
 		
 		for(i = 0; i < data_length; i++)
 		{
-			PRINTF("%02X ", data[i]);
+			//PRINTF("%02X ", data[i]);
 		}
 		PRINTF("\n");
 		
 		//接下来开始处理数据
-		// 02 ** ** ** ** 34 34 ** ** ** ** 0d 0a 03
-		// 02 41 41 00 00 00 00 00 00 00 00 0d 0a 03 //  AA 00 -- 机感握手码
-		process_data(data);
-		
-		FrameProcess(FrameData, EpcData, 0x11, sizeof(EpcData));
-		
-		for(i = 0; i < 20; i++)
+		if(data[0] == 0x02)    // 125K数据
 		{
-			//printf("%02X ", FrameData[i]);
+			// 02 ** ** ** ** 34 34 ** ** ** ** 0d 0a 03
+			// 02 41 41 00 00 00 00 00 00 00 00 0d 0a 03 //  AA 00 -- 机感握手码
+			process_data(data);
+			flag = TRUE;
 		}
-
-		storedata[21] = (EpcData[6]/16 > 9) ?  EpcData[6]/16 + 0x37 : EpcData[6]/16 + 0x30;
-		storedata[22] = (EpcData[6]%16 > 9) ?  EpcData[6]%16 + 0x37 : EpcData[6]%16 + 0x30;
-		storedata[23] = (EpcData[7]/16 > 9) ?  EpcData[7]/16 + 0x37 : EpcData[7]/16 + 0x30;
-		storedata[24] = (EpcData[7]%16 > 9) ?  EpcData[7]%16 + 0x37 : EpcData[7]%16 + 0x30;
-		storedata[25] = (EpcData[8]/16 > 9) ?  EpcData[8]/16 + 0x37 : EpcData[8]/16 + 0x30;
-		storedata[26] = (EpcData[8]%16 > 9) ?  EpcData[8]%16 + 0x37 : EpcData[8]%16 + 0x30;
-		storedata[27] = (EpcData[9]/16 > 9) ?  EpcData[9]/16 + 0x37 : EpcData[9]/16 + 0x30;
-		storedata[28] = (EpcData[9]%16 > 9) ?  EpcData[9]%16 + 0x37 : EpcData[9]%16 + 0x30;
-		storedata[29] = (EpcData[10]/16 > 9) ?  EpcData[10]/16 + 0x37 : EpcData[10]/16 + 0x30;
-		storedata[30] = (EpcData[10]%16 > 9) ?  EpcData[10]%16 + 0x37 : EpcData[10]%16 + 0x30;
-		storedata[31] = (EpcData[11]/16 > 9) ?  EpcData[11]/16 + 0x37 : EpcData[11]/16 + 0x30;
-		storedata[32] = (EpcData[11]%16 > 9) ?  EpcData[11]%16 + 0x37 : EpcData[11]%16 + 0x30;
+		else if(data[0] == 0xBB)    // 900M数据
+		{
+			RuleCheck(data, &flag);
+			PRINTF("flag = %d\n", flag);
+		}
 		
-		xEventGroupSetBits(Event_Handle, DataProcessEnd_Event);
+		if(flag == TRUE)    // 125K数据处理完成或900M数据通过校验
+		{
+			flag = FALSE;
+			
+			#if CURRENTCPU == CPU1
+			FrameProcess(FrameData, EpcData, 0x11, sizeof(EpcData));
+			#else
+			FrameProcess(FrameData, EpcData, 0x21, sizeof(EpcData));
+			#endif
+			
+			for(i = 0; i < 17; i++)
+			{
+				PRINTF("%02X ", FrameData[i]);
+			}
+			PRINTF("\n");
+
+			storedata[21] = (EpcData[6]/16 > 9) ?  EpcData[6]/16 + 0x37 : EpcData[6]/16 + 0x30;
+			storedata[22] = (EpcData[6]%16 > 9) ?  EpcData[6]%16 + 0x37 : EpcData[6]%16 + 0x30;
+			storedata[23] = (EpcData[7]/16 > 9) ?  EpcData[7]/16 + 0x37 : EpcData[7]/16 + 0x30;
+			storedata[24] = (EpcData[7]%16 > 9) ?  EpcData[7]%16 + 0x37 : EpcData[7]%16 + 0x30;
+			storedata[25] = (EpcData[8]/16 > 9) ?  EpcData[8]/16 + 0x37 : EpcData[8]/16 + 0x30;
+			storedata[26] = (EpcData[8]%16 > 9) ?  EpcData[8]%16 + 0x37 : EpcData[8]%16 + 0x30;
+			storedata[27] = (EpcData[9]/16 > 9) ?  EpcData[9]/16 + 0x37 : EpcData[9]/16 + 0x30;
+			storedata[28] = (EpcData[9]%16 > 9) ?  EpcData[9]%16 + 0x37 : EpcData[9]%16 + 0x30;
+			storedata[29] = (EpcData[10]/16 > 9) ?  EpcData[10]/16 + 0x37 : EpcData[10]/16 + 0x30;
+			storedata[30] = (EpcData[10]%16 > 9) ?  EpcData[10]%16 + 0x37 : EpcData[10]%16 + 0x30;
+			storedata[31] = (EpcData[11]/16 > 9) ?  EpcData[11]/16 + 0x37 : EpcData[11]/16 + 0x30;
+			storedata[32] = (EpcData[11]%16 > 9) ?  EpcData[11]%16 + 0x37 : EpcData[11]%16 + 0x30;
+			
+			xEventGroupSetBits(Event_Handle, DataProcessEnd_Event);
+		}
 		
 		vTaskDelay(1);
 	}
@@ -366,9 +381,11 @@ static void Queue_Task(void* parameter)
 			master_data[3] = rxUart6[4];    // 分
 			master_data[4] = rxUart6[5];    // 秒
 			
+			//获取当前时间
 			RTC_Get_Time(&hour,&min,&sec,&ampm);
 			RTC_Get_Date(&year,&month,&date,&week);
 
+			//使用系统时间
 			master_data[2] = (master_data[2] <= 0x17) ? master_data[2] : hour;
 			master_data[3] = (master_data[3] <= 0x3B) ? master_data[3] : min;
 			master_data[4] = (master_data[4] <= 0x3B) ? master_data[4] : sec;
@@ -437,10 +454,7 @@ static void StoreData_Task(void* parameter)
 
 		if(pdTRUE == xReturn)
 		{
-			//printf("StoreData_Task receive data is %x \n", *recv);
 			q = (Queue *)(*recv);
-			//printf("q->front = %d\n", q->front);
-			//printf("q->rear = %d\n", q->rear);
 
 			while(!isEmpty(q))
 			{
@@ -450,7 +464,6 @@ static void StoreData_Task(void* parameter)
 				{
 					PRINTF("%c", data[i]);
 				}		
-				
 				PRINTF("\n");
 	
 				//获取file1point的值
@@ -506,6 +519,10 @@ static void StoreData_Task(void* parameter)
 
 void System_Init(void)
 {
+	u8 hour,min,sec,ampm;
+	u8 year,month,date,week;
+	
+	HAL_Init();				        		//初始化HAL库
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
 	delay_init(400);
 	RTC_Init(); 
@@ -515,10 +532,21 @@ void System_Init(void)
 	my_mem_init(SRAMIN);		    		//初始化内部内存池	
 
 	NAND_Init();
-	//NAND_EraseChip();
+	
+	#if ERASE == 1
+	NAND_EraseChip();
+	#endif
+	
 	FTL_Init();
 	App_Init();
+	
+	RTC_Set_Time(16, 49, 0, 0);
+	RTC_Set_Date(20, 4, 29, 3);
 
+	RTC_Get_Time(&hour,&min,&sec,&ampm);
+	printf("Time:%02d:%02d:%02d\n",hour,min,sec); 	
+	RTC_Get_Date(&year,&month,&date,&week);
+	printf("Date:20%02d-%02d-%02d\n",year,month,date); 
 	
 	PRINTF("============Start============\n");
 }
@@ -533,14 +561,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	
 		temp = rec_buf[0];
 
+		#if CURRENTCPU == CPU1
 		if(temp == 0xC1)
+		#else
+		if(temp == 0xC2)
+		#endif
 		{
-			//printf("FrameData...");
 			USART6_TransmitArray(FrameData, 17);
 
 			memset(FrameData, '\0', sizeof(FrameData));
 			FrameData[0] = 0xAA;
-			FrameData[1] = 0x11;   //0x12
+			#if CURRENTCPU == CPU1
+			FrameData[1] = 0x11;   //0x21
+			#else
+			FrameData[1] = 0x21; 
+			#endif
 		}
 		
 		if(temp == 0x7A)
@@ -565,7 +600,20 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 
+// 100ms进入一次
 static void Swtmr1_Callback(void* parameter)
 {		
-	printf("Swtmr1_Callback\n");
+	if (flag_LedON == BEGIN)
+		tLedCount++; //LED开始定时熄灭
+
+	if (clearFlag_YGD == BEGIN)
+		tCountYGD++;
+
+	if (clearFlag_Forward_DD == BEGIN)
+		tCountFD++;
+
+	if (clearFlag_Rear_DD == BEGIN)
+		tCountRD++;
+
+	tLimt_rxTime++; //接收时长限制
 }

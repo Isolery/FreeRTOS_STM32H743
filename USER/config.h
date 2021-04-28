@@ -6,11 +6,21 @@
 #define DSQUEUE_SIZE    10
 #define STOREDATA_LEN   39
 
-#define FILE_NAND    "0:/test2.txt"
-#define FILE_USB     "1:/test2.txt"
+#define CPU1   1
+#define CPU2   2
+#define CURRENTCPU   CPU1    // 当前工作的CPU
+
+#if CURRENTCPU == CPU1
+#define FILE_NAND    "0:/data1.txt"
+#define FILE_USB     "1:/data1.txt"
+#else
+#define FILE_NAND    "0:/data2.txt"
+#define FILE_USB     "1:/data2.txt"
+#endif
+
 #define FILE_CFG     "0:/config.txt"
 
-#define ERASE 0
+#define ERASE 0      // 1: 清除NandFlash和config.txt
 
 #define DEBUG 1
 

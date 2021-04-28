@@ -1,5 +1,10 @@
 #include "App.h"
 
+USBH_HandleTypeDef hUSBHost;
+
+FRESULT fr;
+UINT brs;
+
 BYTE ReadBuffer[39];
 
 uint32_t file1point = 0;

@@ -19,6 +19,9 @@ extern FIL *file2;	  		//文件2
 
 extern USBH_HandleTypeDef hUSBHost;
 
+extern FRESULT fr;
+extern UINT brs;
+
 extern uint32_t file1point;
 extern uint32_t file2point;
 

@@ -27,7 +27,7 @@ extern uint8_t data_from_125K[20];
 
 void Deal_RLM_Data(void);
 uint8_t DecodeProtocol(const uint8_t* p_rxUart0, uint8_t* p_EpcData);
-void RuleCheck(const uint8_t* p_EpcData);
+void RuleCheck(const uint8_t* p_EpcData, uint8_t *flag);
 void check_preportdata(uint8_t* p_EpcData, uint8_t* p_storeRedirDD, uint8_t* p_storeFdirYGD, uint8_t* p_storeFdirYGD2);
 uint8_t check_portdata(uint8_t* p_EpcData, uint8_t* p_storeFdirYGD, uint8_t* p_storeFdirYGD2, uint8_t* p_storeRedirDD, uint8_t* p_storeLastportdata);
 void Time_up_Clear(void);
