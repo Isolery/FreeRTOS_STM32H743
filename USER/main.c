@@ -41,6 +41,7 @@ static void ReceiveFromMachineSensor_Task(void* pvParameters);  /* ReceiveFromMa
 static void ProcessData_Task(void* pvParameters);
 static void StoreData_Task(void* pvParameters);
 static void Queue_Task(void* pvParameters);
+static void Swtmr1_Callback(void* parameter);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
@@ -66,6 +67,9 @@ static EventGroupHandle_t Event_Handle = NULL;
 
 #define DataProcessEnd_Event    (1<<0)
 #define UART6ReceiveEnd_Event   (1<<2)
+
+// 软件定时器句柄
+static TimerHandle_t Swtmr_Handle = NULL;
 
 int main(void)
 {
@@ -125,6 +129,19 @@ static void AppTaskCreate(void)
 	
 	if(Event_Handle != NULL)
 		printf("Event_Handle Create Success...\n");
+	
+	/* 创建软件定时器Swtmr_Handle */
+	Swtmr_Handle = xTimerCreate((const char*		)"AutoReloadTimer",
+                               (TickType_t			)100,/* 定时器周期 100(tick) */
+                               (UBaseType_t		)pdTRUE,/* 周期模式 */
+                               (void*				  )1,/* 为每个计时器分配一个索引的唯一ID */
+                               (TimerCallbackFunction_t)Swtmr1_Callback); 
+							
+	if(Swtmr_Handle != NULL)       
+	{
+		printf("Swtmr_Handle Create Success...\n");
+		xTimerStart(Swtmr_Handle,0);	//开启周期定时器
+	}		
 	
 	/* 创建LowPriority_Task任务 */
 	xReturn = xTaskCreate((TaskFunction_t  )LowPriority_Task,           // 任务函数
@@ -546,4 +563,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 										  // 分：00,01,02,...,3B
 		}
 	}
+}
+
+static void Swtmr1_Callback(void* parameter)
+{		
+	printf("Swtmr1_Callback\n");
 }
