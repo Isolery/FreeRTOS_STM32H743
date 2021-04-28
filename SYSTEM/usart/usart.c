@@ -391,3 +391,8 @@ int fputc(int ch, FILE *f)
     USART6->TDR = (uint8_t)ch;
     return ch;
 }
+
+void nop_printf(const char* str, ...)
+{
+	
+}

@@ -32,4 +32,6 @@ void USART6_TransmitArray(const uint8_t *Array, uint8_t len);
 void USART1_DMA_Config(void);
 void USART2_DMA_Config(void);
 
+void nop_printf(const char* str, ...);
+
 #endif

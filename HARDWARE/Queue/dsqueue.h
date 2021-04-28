@@ -4,9 +4,8 @@
 #include "sys.h"
 #include "malloc.h"
 #include "usart.h"
+#include "config.h"
 
-#define DSQUEUE_SIZE    10
-#define STOREDATA_LEN   39
 
 typedef struct Queue
 {
