@@ -195,7 +195,7 @@ static void LowPriority_Task(void* param)
 	{
 		//PRINTF("LowPriority_Task\n");
 		USBH_Process(&hUSBHost);
-		vTaskDelay(10);
+		vTaskDelay(1);
 	}
 }
 
@@ -248,7 +248,7 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 			}
 		}
 		
-		vTaskDelay(10);
+		vTaskDelay(1);
 	}
 }
 
@@ -349,8 +349,8 @@ static void Queue_Task(void* parameter)
 			master_data[3] = rxUart6[4];    // 分
 			master_data[4] = rxUart6[5];    // 秒
 			
-			//RTC_Get_Time(&hour,&min,&sec,&ampm);
-			//RTC_Get_Date(&year,&month,&date,&week);
+			RTC_Get_Time(&hour,&min,&sec,&ampm);
+			RTC_Get_Date(&year,&month,&date,&week);
 
 			master_data[2] = (master_data[2] <= 0x17) ? master_data[2] : hour;
 			master_data[3] = (master_data[3] <= 0x3B) ? master_data[3] : min;
@@ -396,7 +396,7 @@ static void Queue_Task(void* parameter)
 			PRINTF("Event Error...\n");
 		}
 		
-		vTaskDelay(10);
+		vTaskDelay(1);
 	}
 }
 
@@ -453,7 +453,7 @@ static void StoreData_Task(void* parameter)
 				f_close(file1);									//结束写入
 				
 				flashdata[0] = file1point;
-				STMFLASH_Write(FLASH_SAVE_ADDR,flashdata, 2);
+//				STMFLASH_Write(FLASH_SAVE_ADDR,flashdata, 2);
 			}
 
 			
