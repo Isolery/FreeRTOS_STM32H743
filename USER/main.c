@@ -409,6 +409,7 @@ static void StoreData_Task(void* parameter)
 	int i;
 	uint8_t res;
 	uint32_t wcnt;
+	char point[8];
 
 	for(;;)
 	{
@@ -434,29 +435,52 @@ static void StoreData_Task(void* parameter)
 				}		
 				
 				PRINTF("\n");
+	
+				//获取file1point的值
+				res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_EXISTING |FA_READ|FA_WRITE); 	//打开文件
+				if(res == FR_OK)
+				{
+					f_read(file1, point, 8, &br);
+					
+					// 32位的数据按照小字节序写的，所以读出来后要进行转换
+					pointerdata[0] = ((point[3] << 24) | (point[2] << 16) | (point[1] << 8) | point[0]);
+					pointerdata[1] = ((point[7] << 24) | (point[6] << 16) | (point[5] << 8) | point[4]);
+					
+					PRINTF("file1point = 0x%04X\n", pointerdata[0]);
+					PRINTF("file2point = 0x%04X\n", pointerdata[1]);
+				}
+				f_close(file1);
 				
-				STMFLASH_Read(FLASH_SAVE_ADDR,(u32*)flashdata, 2);
-
-				file1point = flashdata[0];    // file1point指向文件尾
+				file1point = pointerdata[0];    // file1point指向文件尾
 				
-				res = f_open(file1,(const TCHAR*)FILE_NAND, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+				//存储数据
+				res = f_open(file1, (const TCHAR*)FILE_NAND, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
 				if(res == FR_OK)
 				{
 					f_lseek(file1, file1point*STOREDATA_LEN);
 					file1point++;
-					res = f_write(file1,(void*)storedata, sizeof(storedata), &wcnt);	//写入数据
+					res = f_write(file1, (void*)data, STOREDATA_LEN, &wcnt);	//写入数据
 					if(res == FR_OK)
 					{
 						PRINTF("fwrite ok,write data length is:%d byte\r\n\r\n",wcnt);	//打印写入成功提示,并打印写入的字节数			
-					}else PRINTF("fwrite error:%d\r\n",res);	//打印错误代码
-				}else PRINTF("fopen error:%d\r\n",res);			//打印错误代码
+					}else PRINTF("fwrite error:%d\r\n", res);	//打印错误代码
+				}else PRINTF("fopen error:%d\r\n", res);			//打印错误代码
 				f_close(file1);									//结束写入
 				
-				flashdata[0] = file1point;
-//				STMFLASH_Write(FLASH_SAVE_ADDR,flashdata, 2);
+				//保存file1point的值
+				pointerdata[0] = file1point;
+				res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_EXISTING|FA_READ|FA_WRITE); 	//打开文件
+				if(res == FR_OK)
+				{
+					res = f_write(file1,(void*)pointerdata, sizeof(pointerdata), &wcnt);	//写入数据
+					if(res == FR_OK)
+					{
+						PRINTF("fwrite ok,write data length is:%d byte\n", wcnt);	//打印写入成功提示,并打印写入的字节数			
+					}
+				}
+				f_close(file1);									//结束写入
 			}
 
-			
 		}
 									
 		vTaskDelay(10);
@@ -472,15 +496,7 @@ void System_Init(void)
 	USART1_Init(115200);
 	USART1_DMA_Config();  
 	my_mem_init(SRAMIN);		    		//初始化内部内存池	
-	
-	//STMFLASH_Write(FLASH_SAVE_ADDR,(u32*)flashdata, 2);
-	STMFLASH_Read(FLASH_SAVE_ADDR,(u32*)flashdata, 2);
-	file1point = flashdata[0];
-	file2point = flashdata[1];
-	
-	printf("file1point = %d\n", file1point);
-	printf("file2point = %d\n", file2point);
-	
+
 	NAND_Init();
 	//NAND_EraseChip();
 	FTL_Init();

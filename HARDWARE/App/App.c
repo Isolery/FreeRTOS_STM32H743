@@ -5,7 +5,7 @@ BYTE ReadBuffer[39];
 uint32_t file1point = 0;
 uint32_t file2point = 0;
 
-uint32_t flashdata[2] = {0, 0};    // flashdata[0] = datacnt, flashdata[1] = storecnt;
+uint32_t pointerdata[2] = {0x0, 0x0};    // flashdata[0] = datacnt, flashdata[1] = storecnt;
 
 uint8_t res=0;
 
@@ -15,6 +15,7 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 	u8 res=0;
 	uint32_t wcnt;
 	uint32_t cnt;
+	char point[8];
 	
 	printf("USBH_UserProcess\n");
 	
@@ -35,30 +36,58 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
                 printf("FATFS OK!\r\n");	
                 printf("U Disk Total Size:%d MB\r\n", total);	 
                 printf("U Disk  Free Size:%d MB\r\n", free);	
-
-				STMFLASH_Read(FLASH_SAVE_ADDR,(u32*)flashdata,2);
-				file1point = flashdata[0];
-				file2point = flashdata[1];
+				
+				//获取file1point, file2point的值
+				res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_EXISTING |FA_READ|FA_WRITE); 	//打开文件
+				if(res == FR_OK)
+				{
+					f_read(file1, point, 8, &br);
+					
+					// 32位的数据按照小字节序写的，所以读出来后要进行转换
+					pointerdata[0] = ((point[3] << 24) | (point[2] << 16) | (point[1] << 8) | point[0]);
+					pointerdata[1] = ((point[7] << 24) | (point[6] << 16) | (point[5] << 8) | point[4]);
+					
+//					PRINTF("file1point = 0x%04X\n", pointerdata[0]);
+//					PRINTF("file2point = 0x%04X\n", pointerdata[1]);
+				}
+				f_close(file1);
+				
+				file1point = pointerdata[0];    // file1point指向文件尾
+				file2point = pointerdata[1];    // file1point指向文件尾
 
 				cnt = file1point - file2point;
 
 				f_open(file2, FILE_USB, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 
 				f_open(file1, FILE_NAND, FA_READ|FA_WRITE);
 				
+//				PRINTF("file1point = 0x%04X\n", pointerdata[0]);
+//				PRINTF("file2point = 0x%04X\n", pointerdata[1]);
+				
 				while(cnt--)
 				{
-					f_lseek(file1, (file1point-cnt)*STOREDATA_LEN);
+					f_lseek(file1, (file1point-cnt-1)*STOREDATA_LEN);
 					f_lseek(file2, file2point*STOREDATA_LEN);
 					file2point++;
 					f_read(file1, ReadBuffer, STOREDATA_LEN, &br);
-					f_write(file2,(void*)ReadBuffer,sizeof(ReadBuffer),&wcnt);
+					f_write(file2, (void*)ReadBuffer, sizeof(ReadBuffer), &wcnt);
+//					PRINTF("cnt = %d\n", cnt);
 				}
 				f_close(file1);
 				f_close(file2);
-				
-				flashdata[1] = file2point;
-				
-				STMFLASH_Write(FLASH_SAVE_ADDR,(u32*)flashdata,2);
+			
+				//保存file2point的值
+				pointerdata[1] = file2point;
+				res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_EXISTING|FA_READ|FA_WRITE); 	//打开文件
+				if(res == FR_OK)
+				{
+					res = f_write(file1,(void*)pointerdata, sizeof(pointerdata), &wcnt);	//写入数据
+					if(res == FR_OK)
+					{
+						PRINTF("fwrite ok,write data length is:%d byte\n", wcnt);	//打印写入成功提示,并打印写入的字节数			
+					}
+				}
+				f_close(file1);									//结束写入
+
             }
             else
             {
@@ -74,6 +103,8 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 
 void App_Init(void)
 {
+	uint32_t wcnt;
+	
 	printf("exfuns_init() = %d\n", exfuns_init());	//为fatfs相关变量申请内存
 	
 	res = f_mount(fs[0],"0:",1); 		            //挂载NAND FLASH.  
@@ -93,8 +124,28 @@ void App_Init(void)
 	
 	else if(res == FR_OK)
 	{	
-		res = f_open(file1,(const TCHAR*)"0:/22data1.txt", FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+		res = f_open(file1,(const TCHAR*)FILE_NAND, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+		if(res == FR_OK)
+		{
+			printf("FILE_NAND File create Success\n");
+		}
 		f_close(file1);									//结束写入
+		
+		#if ERASE == 1
+		res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+		if(res == FR_OK)
+		{
+			printf("FILE_CFG File create Success\n");
+			res = f_write(file1,(void*)pointerdata, sizeof(pointerdata), &wcnt);	//写入数据
+			if(res == FR_OK)
+			{
+				printf("fwrite ok,write data length is:%d byte\n", wcnt);	//打印写入成功提示,并打印写入的字节数			
+			}else printf("fwrite error:%d\n", res);	//打印错误代码
+		}
+		f_close(file1);									//结束写入
+		#else
+		#endif
+
 		printf("f_mount Nand OK!\n");
 	}
 	

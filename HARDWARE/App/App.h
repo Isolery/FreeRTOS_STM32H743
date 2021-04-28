@@ -12,7 +12,6 @@
 #include "usbh_msc.h"
 #include "diskio.h"
 #include "rtc.h"
-#include "stmflash.h"
 #include "config.h"
 
 extern FIL *file1;	  		//文件1
@@ -23,7 +22,7 @@ extern USBH_HandleTypeDef hUSBHost;
 extern uint32_t file1point;
 extern uint32_t file2point;
 
-extern uint32_t flashdata[2];    // flashdata[0] = datacnt, flashdata[1] = storecnt;
+extern uint32_t pointerdata[2];    // flashdata[0] = datacnt, flashdata[1] = storecnt;
 
 void App_Init(void);
 void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id);

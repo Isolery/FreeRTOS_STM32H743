@@ -6,10 +6,13 @@
 #define DSQUEUE_SIZE    10
 #define STOREDATA_LEN   39
 
-#define FILE_NAND    "0:/test1.txt"
-#define FILE_USB     "1:/test1.txt"
+#define FILE_NAND    "0:/test2.txt"
+#define FILE_USB     "1:/test2.txt"
+#define FILE_CFG     "0:/config.txt"
 
-#define DEBUG 0
+#define ERASE 0
+
+#define DEBUG 1
 
 #if DEBUG == 1
 #define PRINTF printf
