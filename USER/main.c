@@ -360,9 +360,9 @@ static void Queue_Task(void* parameter)
 {
 	BaseType_t xReturn = pdPASS;
 	EventBits_t r_event;
-	u8 hour,min,sec,ampm;
-	u8 year,month,date,week;
 	Queue *q = init();
+	RTC_TimeTypeDef RTC_TimeStruct;
+    RTC_DateTypeDef RTC_DateStruct;
 	
 	for(;;)
 	{
@@ -382,20 +382,20 @@ static void Queue_Task(void* parameter)
 			master_data[4] = rxUart6[5];    // 秒
 			
 			//获取当前时间
-			RTC_Get_Time(&hour,&min,&sec,&ampm);
-			RTC_Get_Date(&year,&month,&date,&week);
+			HAL_RTC_GetTime(&RTC_Handler, &RTC_TimeStruct, RTC_FORMAT_BIN);
+			HAL_RTC_GetDate(&RTC_Handler, &RTC_DateStruct, RTC_FORMAT_BIN);
 
 			//使用系统时间
-			master_data[2] = (master_data[2] <= 0x17) ? master_data[2] : hour;
-			master_data[3] = (master_data[3] <= 0x3B) ? master_data[3] : min;
-			master_data[4] = (master_data[4] <= 0x3B) ? master_data[4] : sec;
+			master_data[2] = (master_data[2] <= 0x17) ? master_data[2] : RTC_TimeStruct.Hours;
+			master_data[3] = (master_data[3] <= 0x3B) ? master_data[3] : RTC_TimeStruct.Minutes;
+			master_data[4] = (master_data[4] <= 0x3B) ? master_data[4] : RTC_TimeStruct.Seconds;
 			
-			storedata[3] = year/10 + 0x30;     // 2
-			storedata[4] = year%10 + 0x30;     // 1
-			storedata[6] = month/10 + 0x30;    // 0
-			storedata[7] = month%10 + 0x30;    // 4
-			storedata[9] = date/10 + 0x30;     // 0
-			storedata[10] = date%10 + 0x30;    // 8
+			storedata[3] = RTC_DateStruct.Year/10 + 0x30;     // 2
+			storedata[4] = RTC_DateStruct.Year%10 + 0x30;     // 1
+			storedata[6] = RTC_DateStruct.Month/10 + 0x30;    // 0
+			storedata[7] = RTC_DateStruct.Month%10 + 0x30;    // 4
+			storedata[9] = RTC_DateStruct.Date/10 + 0x30;     // 0
+			storedata[10] = RTC_DateStruct.Date%10 + 0x30;    // 8
 			storedata[12] = master_data[2]/10 + 0x30;    // 时
 			storedata[13] = master_data[2]%10 + 0x30;    // 时
 			storedata[15] = master_data[3]/10 + 0x30;    // 分
@@ -519,8 +519,8 @@ static void StoreData_Task(void* parameter)
 
 void System_Init(void)
 {
-	u8 hour,min,sec,ampm;
-	u8 year,month,date,week;
+	RTC_TimeTypeDef RTC_TimeStruct;
+    RTC_DateTypeDef RTC_DateStruct;
 	
 	HAL_Init();				        		//初始化HAL库
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
@@ -540,14 +540,16 @@ void System_Init(void)
 	FTL_Init();
 	App_Init();
 	
-	RTC_Set_Time(8, 49, 0, 0);
-	RTC_Set_Date(21, 4, 29, 3);
+	#if UPDATE == 1
+	RTC_Set_Time(10, 21, 0, 0);
+	RTC_Set_Date(21, 4, 29, 4);
+	#endif
 
-	RTC_Get_Time(&hour,&min,&sec,&ampm);
-	printf("Time:%02d:%02d:%02d\n",hour,min,sec); 	
-	RTC_Get_Date(&year,&month,&date,&week);
-	printf("Date:20%02d-%02d-%02d\n",year,month,date); 
+	HAL_RTC_GetTime(&RTC_Handler, &RTC_TimeStruct, RTC_FORMAT_BIN);
+    HAL_RTC_GetDate(&RTC_Handler, &RTC_DateStruct, RTC_FORMAT_BIN); //必须同时GetTime和GetDate,不然得到的时间不会更新
 	
+	printf("[20%02d/%02d/%02d] %02d:%02d:%02d\n", RTC_DateStruct.Year, RTC_DateStruct.Month, RTC_DateStruct.Date, RTC_TimeStruct.Hours, RTC_TimeStruct.Minutes, RTC_TimeStruct.Seconds);
+
 	PRINTF("============Start============\n");
 }
 

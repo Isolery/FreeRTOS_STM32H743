@@ -121,7 +121,32 @@ void App_Init(void)
 		if(res == 0)
 		{
 			f_setlabel((const TCHAR *)"0:NANDDISK");	//设置Flash磁盘的名字为：NANDDISK
-			printf("NAND Disk Format Finish\n");		//格式化完成		
+			printf("NAND Disk Format Finish\n");		//格式化完成	
+
+			//格式化完成后创建必要的文件
+			
+			//创建data文件
+			res = f_open(file1,(const TCHAR*)FILE_NAND, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+			if(res == FR_OK)
+			{
+				printf("FILE_NAND File create Success\n");
+			}
+			f_close(file1);									//结束写入
+			
+			//创建config文件并写入初始值
+			res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
+			if(res == FR_OK)
+			{
+				printf("FILE_CFG File create Success\n");
+				
+				res = f_write(file1,(void*)pointerdata, sizeof(pointerdata), &wcnt);	//写入数据
+				if(res == FR_OK)
+				{
+					printf("fwrite ok,write data length is:%d byte\n", wcnt);	//打印写入成功提示,并打印写入的字节数			
+				}else printf("fwrite error:%d\n", res);	//打印错误代码	
+			}
+			f_close(file1);									//结束写入
+			
 		}
 		else 
 			printf("NAND Disk Format Error \n");	//格式化失败
@@ -129,28 +154,6 @@ void App_Init(void)
 	
 	else if(res == FR_OK)
 	{	
-		res = f_open(file1,(const TCHAR*)FILE_NAND, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
-		if(res == FR_OK)
-		{
-			printf("FILE_NAND File create Success\n");
-		}
-		f_close(file1);									//结束写入
-		
-		#if ERASE == 1
-		res = f_open(file1,(const TCHAR*)FILE_CFG, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 	//创建文件
-		if(res == FR_OK)
-		{
-			printf("FILE_CFG File create Success\n");
-			res = f_write(file1,(void*)pointerdata, sizeof(pointerdata), &wcnt);	//写入数据
-			if(res == FR_OK)
-			{
-				printf("fwrite ok,write data length is:%d byte\n", wcnt);	//打印写入成功提示,并打印写入的字节数			
-			}else printf("fwrite error:%d\n", res);	//打印错误代码
-		}
-		f_close(file1);									//结束写入
-		#else
-		#endif
-
 		printf("f_mount Nand OK!\n");
 	}
 	
