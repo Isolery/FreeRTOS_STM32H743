@@ -540,8 +540,8 @@ void System_Init(void)
 	FTL_Init();
 	App_Init();
 	
-	RTC_Set_Time(16, 49, 0, 0);
-	RTC_Set_Date(20, 4, 29, 3);
+	RTC_Set_Time(8, 49, 0, 0);
+	RTC_Set_Date(21, 4, 29, 3);
 
 	RTC_Get_Time(&hour,&min,&sec,&ampm);
 	printf("Time:%02d:%02d:%02d\n",hour,min,sec); 	
