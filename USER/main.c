@@ -210,7 +210,7 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 		{
 			for(i = 0; i < 25; i++)
 			{
-				//PRINTF("%02X ", RX_BUFF[i]);
+				PRINTF("%02X ", RX_BUFF[i]);
 				raw_data[i] = RX_BUFF[i];
 			}
 			PRINTF("\n");
@@ -218,8 +218,13 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 				
 			if(raw_data[0] == 0x02)    // 125K数据
 			{
+				//判断是否是空闲数据
+				if((raw_data[1] == 0x41) && (raw_data[2] == 0x41))
+				{
+					
+				}
 				//进一步判断是否是完整的125K数据
-				if(((raw_data[5] == 0x34) || (raw_data[5] == 0x30)) && (raw_data[11] == 0x0d) && (raw_data[12] == 0x0a) && (raw_data[13] == 0x03))
+				else if(((raw_data[5] == 0x34) || (raw_data[5] == 0x30)) && (raw_data[11] == 0x0d) && (raw_data[12] == 0x0a) && (raw_data[13] == 0x03))
 				{
 					data_length = 14;
 					
@@ -527,7 +532,7 @@ void System_Init(void)
 	delay_init(400);
 	RTC_Init(); 
 	USART6_Init(115200);
-	USART1_Init(115200);
+	USART1_Init(9600);
 	USART1_DMA_Config();  
 	my_mem_init(SRAMIN);		    		//初始化内部内存池	
 
@@ -541,7 +546,7 @@ void System_Init(void)
 	App_Init();
 	
 	#if UPDATE == 1
-	RTC_Set_Time(10, 21, 0, 0);
+	RTC_Set_Time(0, 0, 0, 0);
 	RTC_Set_Date(21, 4, 29, 4);
 	#endif
 

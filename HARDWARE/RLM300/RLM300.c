@@ -1,4 +1,5 @@
 #include "RLM300.h"
+#include "config.h"
 
 //定时清除存储的点
 #define CLEAR_GAP0      600           //收到预告点后计时1min       CLEAR_GAP0*100ms
@@ -98,13 +99,13 @@ void RuleCheck(const uint8_t* p_EpcData, uint8_t* flag)
 		tCountYGD = 0;     
 		/*检查预告点，正向预告点 or 反向预告点*/             
 		check_preportdata(EpcData, storeRedirDD, storeFdirYGD, storeFdirYGD2);
-		printf("yugaodian \n");
+		PRINTF("yugaodian \n");
 	}
 		 
 	if(p_EpcData[6] == 0x02)    //如果是地感
 	{
 		/*检查地感，正向 or 反向  上报 or 忽略*/
-		printf("dingdian \n");
+		PRINTF("dingdian \n");
 		if(check_portdata(EpcData, storeFdirYGD, storeFdirYGD2, storeRedirDD, storeLastportdata)) 
 		{
 			//FrameProcess(FrameData, EpcData, 0x11, sizeof(EpcData));       
@@ -112,7 +113,7 @@ void RuleCheck(const uint8_t* p_EpcData, uint8_t* flag)
 			flag_LedON = BEGIN;
 			//MPCM_USART1_TransmitFrame(FrameData, 0xC1);    //发送给WirelessCom_1 --> 通信板第一个CPU
 			*flag = TRUE;
-			printf("dingdian ok \n");
+			PRINTF("dingdian ok \n");
 		}
 		else
 		{

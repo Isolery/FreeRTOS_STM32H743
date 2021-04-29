@@ -248,7 +248,7 @@ void USART1_IRQHandler(void)
 		
 		xSemaphoreGiveFromISR(BinarySem_Handle, &pxHigherPriorityTaskWoken);
 		
-		//printf("Release Sema\n");
+		PRINTF("Release Sema\n");
 		
 //		printf("data_length = %d\n", data_length);
 		

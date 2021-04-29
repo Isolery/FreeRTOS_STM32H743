@@ -6,11 +6,11 @@
 
 #include "stm32h7xx.h"
 
-//0,²»Ö§³Öos
-//1,Ö§³Öos
-#define SYSTEM_SUPPORT_OS		0		//¶¨ÒåÏµÍ³ÎÄ¼ş¼ĞÊÇ·ñÖ§³ÖOS	
+//0,ä¸æ”¯æŒos
+//1,æ”¯æŒos
+#define SYSTEM_SUPPORT_OS		0		//å®šä¹‰ç³»ç»Ÿæ–‡ä»¶å¤¹æ˜¯å¦æ”¯æŒOS	
 ///////////////////////////////////////////////////////////////////////////////////
-//¶¨ÒåÒ»Ğ©³£ÓÃµÄÊı¾İÀàĞÍ¶Ì¹Ø¼ü×Ö 
+//å®šä¹‰ä¸€äº›å¸¸ç”¨çš„æ•°æ®ç±»å‹çŸ­å…³é”®å­— 
 typedef int32_t  s32;
 typedef int16_t s16;
 typedef int8_t  s8;
@@ -51,24 +51,24 @@ typedef __I uint8_t vuc8;
 #define END     0
 
 
-#define Write_Through() (*(__IO uint32_t*)0XE000EF9C=1UL<<2) //CacheÍ¸Ğ´Ä£Ê½
+#define Write_Through() (*(__IO uint32_t*)0XE000EF9C=1UL<<2) //Cacheé€å†™æ¨¡å¼
 
-void Cache_Enable(void);                                    //Ê¹ÄÜSTM32H7µÄL1-Cahce
-void Stm32_Clock_Init(u32 plln,u32 pllm,u32 pllp,u32 pllq); //ÅäÖÃÏµÍ³Ê±ÖÓ
-u8 Get_ICahceSta(void);//ÅĞ¶ÏI_CacheÊÇ·ñ´ò¿ª
-u8 Get_DCahceSta(void);//ÅĞ¶ÏI_DacheÊÇ·ñ´ò¿ª
+void Cache_Enable(void);                                    //ä½¿èƒ½STM32H7çš„L1-Cahce
+void Stm32_Clock_Init(u32 plln,u32 pllm,u32 pllp,u32 pllq); //é…ç½®ç³»ç»Ÿæ—¶é’Ÿ
+u8 Get_ICahceSta(void);//åˆ¤æ–­I_Cacheæ˜¯å¦æ‰“å¼€
+u8 Get_DCahceSta(void);//åˆ¤æ–­I_Dacheæ˜¯å¦æ‰“å¼€
 
-#if defined(__clang__) //Ê¹ÓÃV6±àÒëÆ÷(clang)
+#if defined(__clang__) //ä½¿ç”¨V6ç¼–è¯‘å™¨(clang)
 void __attribute__((noinline)) WFI_SET(void);
 void __attribute__((noinline)) INTX_DISABLE(void);
 void __attribute__((noinline)) INTX_ENABLE(void);
 void __attribute__((noinline)) MSR_MSP(u32 addr);
-#elif defined (__CC_ARM)    //Ê¹ÓÃV5±àÒëÆ÷(ARMCC)
-//ÒÔÏÂÎª»ã±àº¯Êı
-void WFI_SET(void);		//Ö´ĞĞWFIÖ¸Áî
-void INTX_DISABLE(void);//¹Ø±ÕËùÓĞÖĞ¶Ï
-void INTX_ENABLE(void);	//¿ªÆôËùÓĞÖĞ¶Ï
-void MSR_MSP(u32 addr);	//ÉèÖÃ¶ÑÕ»µØÖ· 
+#elif defined (__CC_ARM)    //ä½¿ç”¨V5ç¼–è¯‘å™¨(ARMCC)
+//ä»¥ä¸‹ä¸ºæ±‡ç¼–å‡½æ•°
+void WFI_SET(void);		//æ‰§è¡ŒWFIæŒ‡ä»¤
+void INTX_DISABLE(void);//å…³é—­æ‰€æœ‰ä¸­æ–­
+void INTX_ENABLE(void);	//å¼€å¯æ‰€æœ‰ä¸­æ–­
+void MSR_MSP(u32 addr);	//è®¾ç½®å †æ ˆåœ°å€ 
 #endif
 
 
