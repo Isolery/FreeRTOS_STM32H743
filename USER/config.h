@@ -7,12 +7,13 @@
 #define STOREDATA_LEN   39
 
 #define CPU1   1
+
 #define CPU2   2
 
 //手动配置项
 #define CURRENTCPU   CPU1         // 当前工作的CPU
 #define ERASE      0              // 1: 清除NandFlash和config.txt
-#define DEBUG      0              // 1: 打印调试信息
+#define DEBUG      1              // 1: 打印调试信息
 #define UPDATE     1              // 1: 重新设置RTC时间
 
 #if DEBUG == 1

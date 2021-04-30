@@ -75,7 +75,7 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 					file2point++;
 					f_read(file1, ReadBuffer, STOREDATA_LEN, &br);
 					f_write(file2, (void*)ReadBuffer, sizeof(ReadBuffer), &wcnt);
-//					PRINTF("cnt = %d\n", cnt);
+//					PRINTF("cnt = %d\n", cnt);	
 				}
 				f_close(file1);
 				f_close(file2);

@@ -20,14 +20,11 @@ extern FIL *file2;	  		//文件2
 
 extern uint8_t RX_BUFF[USART1_RBUFF_SIZE];
 
-uint8_t data_125K[14] = {0x02, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0x0D, 0x0A, 0x03};
-uint8_t data_900M[20] = {0xAA, 0x11, 0x10, 0x00, 0x30, 0xAA, 0xBB, 0xE1, 0x00, 0x00, 0x00, 0x00, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53, 0x55};
 uint8_t FrameData[20] = {0xAA, 0x11}; 
 uint8_t rxUart6[10];
 uint8_t master_data[5];
-uint8_t storedata[STOREDATA_LEN] = {'[', '2', '0', '2', '1', '/', '0', '3', '/', '2', '4', \
-	                      ' ', '1', '4', ':', '2', '5', ':', '1', '5',']', '0', '2', '5', '3', '3', \
-                          '2', '4', '4', '0', '2', '5', '3', '0', '0', '1', '1', '\r', '\n'};
+//[2021/04/29 14:43:05]021128449920C100
+uint8_t storedata[STOREDATA_LEN] = {'[','2','0','2','1','/','0','3','/','2','4',' ','1','4',':','2','5',':','1','5',']','0','2','5','3','3','2','4','4','0','2','5','3','0','0','1','1','\r','\n'};
 
 static void System_Init(void);
 static void AppTaskCreate(void);
@@ -37,6 +34,7 @@ static void ProcessData_Task(void* pvParameters);
 static void StoreData_Task(void* pvParameters);
 static void Queue_Task(void* pvParameters);
 static void Swtmr1_Callback(void* parameter);
+static void Send_Task(void* parameter);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
@@ -44,10 +42,12 @@ static TaskHandle_t LowPriority_Task_Handle = NULL;
 static TaskHandle_t ReceiveFromMachineSensor_Task_Handle = NULL;  
 static TaskHandle_t ProcessData_Task_Handle = NULL;	
 static TaskHandle_t StoreData_Task_Handle = NULL;
-static TaskHandle_t Queue_Task_Handle = NULL;						  
+static TaskHandle_t Queue_Task_Handle = NULL;				
+static TaskHandle_t Send_Task_Handle = NULL;	
 
 //二值信号量句柄
 SemaphoreHandle_t BinarySem_Handle = NULL;
+SemaphoreHandle_t Send_BinarySem_Handle = NULL;
 
 //消息队列任务句柄
 static QueueHandle_t Data_Queue = NULL;
@@ -80,6 +80,7 @@ int main(void)
 	
 	if(pdPASS == xReturn)
 		vTaskStartScheduler();    // 开启任务调度
+	
 	else
 		return -1;
 	
@@ -102,6 +103,10 @@ static void AppTaskCreate(void)
 	BinarySem_Handle = xSemaphoreCreateBinary();
 	if(BinarySem_Handle != NULL)
 		printf("BinarySem_Handle Create Success...\n");
+	
+	Send_BinarySem_Handle = xSemaphoreCreateBinary();
+	if(Send_BinarySem_Handle != NULL)
+		printf("Send_BinarySem_Handle Create Success...\n");
 	
 	/* 创建消息队列Data_Queue */
 	Data_Queue = xQueueCreate((UBaseType_t) Data_LEN,    // 消息队列的长度
@@ -161,7 +166,7 @@ static void AppTaskCreate(void)
 	                      (const char*     )"StoreData_Task",           // 任务名称
 						  (uint16_t        )512,                        // 任务堆栈大小
 						  (void*           )NULL,                       // 传递给任务函数的参数
-						  (UBaseType_t     )4,                          // 任务优先级
+						  (UBaseType_t     )3,                          // 任务优先级
 						  (TaskHandle_t*   )&StoreData_Task_Handle);    // 任务控制块指针  							  
 	if(pdPASS == xReturn)               
 		printf("StoreData_Task Create Success...\n");
@@ -171,13 +176,25 @@ static void AppTaskCreate(void)
 	                      (const char*     )"Queue_Task",           // 任务名称
 						  (uint16_t        )1024,                        // 任务堆栈大小
 						  (void*           )NULL,                       // 传递给任务函数的参数
-						  (UBaseType_t     )4,                          // 任务优先级
+						  (UBaseType_t     )5,                          // 任务优先级
 						  (TaskHandle_t*   )&Queue_Task_Handle);    // 任务控制块指针  							  
 	if(pdPASS == xReturn)               
 		printf("Queue_Task Create Success...\n");
+	
+	/* 创建Send_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )Send_Task,             // 任务函数
+	                      (const char*     )"Send_Task",           // 任务名称
+						  (uint16_t        )512,                        // 任务堆栈大小
+						  (void*           )NULL,                       // 传递给任务函数的参数
+						  (UBaseType_t     )5,                          // 任务优先级
+						  (TaskHandle_t*   )&Send_Task_Handle);    // 任务控制块指针  							  
+	if(pdPASS == xReturn)               
+		printf("Send_Task Create Success...\n");
 
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
-
+	
+	printf("============RTOS Start============\n");
+	
 	taskEXIT_CRITICAL();                  //退出临界区
 }
 
@@ -208,6 +225,7 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 		
 		if(xReturn == pdPASS)
 		{
+			PRINTF("RX_BUFF: ");
 			for(i = 0; i < 25; i++)
 			{
 				PRINTF("%02X ", RX_BUFF[i]);
@@ -242,11 +260,13 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 				//进一步判断是否是完整的900M数据
 				if(raw_data[raw_data[1]+2] == 0x55)
 				{
+					PRINTF("900M_EpcData: ");
 					for(i = 0; i < 12; i++)
 					{
 						EpcData[i] = raw_data[i+7];
-						//PRINTF("%02x ", EpcData[i]);
+						PRINTF("%02x ", EpcData[i]);
 					}
+					PRINTF("\n");
 					
 					data_length = 12;
 					
@@ -305,9 +325,10 @@ static void ProcessData_Task(void* parameter)
 			}
 		}
 		
+		PRINTF("Process data: ");
 		for(i = 0; i < data_length; i++)
 		{
-			//PRINTF("%02X ", data[i]);
+			PRINTF("%02X ", data[i]);
 		}
 		PRINTF("\n");
 		
@@ -335,6 +356,7 @@ static void ProcessData_Task(void* parameter)
 			FrameProcess(FrameData, EpcData, 0x21, sizeof(EpcData));
 			#endif
 			
+			PRINTF("FrameData: ");
 			for(i = 0; i < 17; i++)
 			{
 				PRINTF("%02X ", FrameData[i]);
@@ -355,6 +377,7 @@ static void ProcessData_Task(void* parameter)
 			storedata[32] = (EpcData[11]%16 > 9) ?  EpcData[11]%16 + 0x37 : EpcData[11]%16 + 0x30;
 			
 			xEventGroupSetBits(Event_Handle, DataProcessEnd_Event);
+			printf("DataProcessEnd_Event\n");
 		}
 		
 		vTaskDelay(1);
@@ -379,7 +402,7 @@ static void Queue_Task(void* parameter)
 		
 		if((r_event & (DataProcessEnd_Event|UART6ReceiveEnd_Event)) != 0)
 		{
-			PRINTF("Queue_Task Running...\n");
+			//PRINTF("Queue_Task Running...\n");
 			master_data[0] = rxUart6[1];    // 手柄
 			master_data[1] = rxUart6[2];    // 速度
 			master_data[2] = rxUart6[3];    // 时
@@ -414,6 +437,7 @@ static void Queue_Task(void* parameter)
 			storedata[36] = (master_data[1]%16 >= 10) ? master_data[1]%16 + 0x37 : master_data[1]%16 + 0x30;
 
 			push(q, storedata);
+			PRINTF("push data...\n");
 
 			if(!isEmpty(q))
 			{
@@ -424,7 +448,7 @@ static void Queue_Task(void* parameter)
 		
 				if(xReturn == pdPASS)
 				{
-					//printf("TaskNotify Send to StoreData_Task Success...\n");
+					//PRINTF("TaskNotify Send to StoreData_Task Success...\n");
 				}
 					
 			
@@ -464,7 +488,9 @@ static void StoreData_Task(void* parameter)
 			while(!isEmpty(q))
 			{
 				data = pop(q);
+				PRINTF("pop data...\n");
 				
+				PRINTF("Store Data: ");
 				for(i = 0; i < STOREDATA_LEN; i++)
 				{
 					PRINTF("%c", data[i]);
@@ -522,6 +548,28 @@ static void StoreData_Task(void* parameter)
 	}
 }
 
+void Send_Task(void* parameter)
+{
+  BaseType_t xReturn = pdPASS;
+	for(;;)
+	{
+		xReturn = xSemaphoreTake(Send_BinarySem_Handle, portMAX_DELAY);
+		
+		if(xReturn == pdPASS)
+		{
+			//PRINTF("Send_Task Running...\n");
+			USART6_TransmitArray(FrameData, 17);
+			memset(FrameData, '\0', sizeof(FrameData));
+			FrameData[0] = 0xAA;
+			#if CURRENTCPU == CPU1
+			FrameData[1] = 0x11;   //0x21
+			#else
+			FrameData[1] = 0x21; 
+			#endif
+		}
+	}
+}
+
 void System_Init(void)
 {
 	RTC_TimeTypeDef RTC_TimeStruct;
@@ -555,7 +603,6 @@ void System_Init(void)
 	
 	printf("[20%02d/%02d/%02d] %02d:%02d:%02d\n", RTC_DateStruct.Year, RTC_DateStruct.Month, RTC_DateStruct.Date, RTC_TimeStruct.Hours, RTC_TimeStruct.Minutes, RTC_TimeStruct.Seconds);
 
-	PRINTF("============Start============\n");
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -565,6 +612,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		volatile static uint8_t temp;
 		volatile static uint8_t countRx, storeflag;
 		BaseType_t xHigherPriorityTaskWoken;
+		
 	
 		temp = rec_buf[0];
 
@@ -574,15 +622,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		if(temp == 0xC2)
 		#endif
 		{
-			USART6_TransmitArray(FrameData, 17);
-
-			memset(FrameData, '\0', sizeof(FrameData));
-			FrameData[0] = 0xAA;
-			#if CURRENTCPU == CPU1
-			FrameData[1] = 0x11;   //0x21
-			#else
-			FrameData[1] = 0x21; 
-			#endif
+			xSemaphoreGiveFromISR(Send_BinarySem_Handle, &xHigherPriorityTaskWoken);
+			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 		}
 		
 		if(temp == 0x7A)
@@ -596,6 +637,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			rxUart6[countRx++] = temp; 
 			
 			xEventGroupSetBitsFromISR(Event_Handle, UART6ReceiveEnd_Event, &xHigherPriorityTaskWoken);
+			//PRINTF("UART6ReceiveEnd_Event\n");
 			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 		}
 		
