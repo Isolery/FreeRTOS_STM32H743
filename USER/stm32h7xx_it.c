@@ -164,6 +164,7 @@ void SysTick_Handler(void)
     #if (INCLUDE_xTaskGetSchedulerState  == 1 )
       }
     #endif  /* INCLUDE_xTaskGetSchedulerState */
+	 HAL_IncTick();
 }
 
 

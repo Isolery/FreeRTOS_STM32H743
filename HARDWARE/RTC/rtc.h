@@ -1,22 +1,16 @@
-#ifndef __RTC_H
-#define __RTC_H	 
+#ifndef RTC_H
+#define RTC_H	 
 
 #include "sys.h" 
+#include "stm32h7xx_hal_rtc.h"
+#include "stm32h7xx_hal_rtc_ex.h"
 		
-u8 RTC_Init(void);										//RTC³õÊ¼»¯
-u8 RTC_Wait_Synchro(void);								//µÈ´ıÍ¬²½
-u8 RTC_Init_Mode(void);									//½øÈë³õÊ¼»¯Ä£Ê½
-void RTC_Write_BKR(u32 BKRx,u32 data);					//Ğ´ºó±¸ÇøÓòSRAM
-u32 RTC_Read_BKR(u32 BKRx);								//¶Áºó±¸ÇøÓòSRAM
-u8 RTC_DEC2BCD(u8 val);									//Ê®½øÖÆ×ª»»ÎªBCDÂë
-u8 RTC_BCD2DEC(u8 val);									//BCDÂë×ª»»ÎªÊ®½øÖÆÊı¾İ
-u8 RTC_Set_Time(u8 hour,u8 min,u8 sec,u8 ampm);			//RTCÊ±¼äÉèÖÃ
-u8 RTC_Set_Date(u8 year,u8 month,u8 date,u8 week); 		//RTCÈÕÆÚÉèÖÃ
-void RTC_Get_Time(u8 *hour,u8 *min,u8 *sec,u8 *ampm);	//»ñÈ¡RTCÊ±¼ä
-void RTC_Get_Date(u8 *year,u8 *month,u8 *date,u8 *week);//»ñÈ¡RTCÈÕÆÚ
-void RTC_Set_AlarmA(u8 week,u8 hour,u8 min,u8 sec);		//ÉèÖÃÄÖÖÓÊ±¼ä(°´ĞÇÆÚÄÖÁå,24Ğ¡Ê±ÖÆ)
-void RTC_Set_WakeUp(u8 wksel,u16 cnt);					//ÖÜÆÚĞÔ»½ĞÑ¶¨Ê±Æ÷ÉèÖÃ
-u8 RTC_Get_Week(u16 year,u8 month,u8 day);				//¸ù¾İÊäÈëµÄÄêÔÂÈÕ,¼ÆËãµ±ÈÕËùÊôĞÇÆÚ¼¸
+extern RTC_HandleTypeDef RTC_Handler;  //RTCå¥æŸ„
+    
+u8 RTC_Init(void);              //RTCåˆå§‹åŒ–
+HAL_StatusTypeDef RTC_Set_Time(u8 hour,u8 min,u8 sec,u8 ampm);      //RTCæ—¶é—´è®¾ç½®
+HAL_StatusTypeDef RTC_Set_Date(u8 year,u8 month,u8 date,u8 week);	//RTCæ—¥æœŸè®¾ç½®
+void RTC_Set_AlarmA(u8 week,u8 hour,u8 min,u8 sec); //è®¾ç½®é—¹é’Ÿæ—¶é—´(æŒ‰æ˜ŸæœŸé—¹é“ƒ,24å°æ—¶åˆ¶)
+void RTC_Set_WakeUp(u32 wksel,u16 cnt);             //å‘¨æœŸæ€§å”¤é†’å®šæ—¶å™¨è®¾ç½®
 
 #endif
-

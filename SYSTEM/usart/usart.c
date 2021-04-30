@@ -1,5 +1,14 @@
 #include "usart.h"
-//#include "delay.h"
+#include "FreeRTOS.h"
+#include "task.h"
+#include "semphr.h"
+#include "delay.h"
+#include "config.h"
+
+extern SemaphoreHandle_t BinarySem_Handle;
+//extern QueueHandle_t Test_Queue;
+
+uint8_t  RX_BUFF[USART1_RBUFF_SIZE] = {0};
 
 uint8_t rec_buf[1];
 uint16_t rec16[1];
@@ -8,6 +17,8 @@ UART_HandleTypeDef UART1_Handler; //UART1句柄
 UART_HandleTypeDef UART2_Handler; //UART2句柄
 UART_HandleTypeDef UART3_Handler; //UART3句柄
 UART_HandleTypeDef UART6_Handler; //UART6句柄
+
+DMA_HandleTypeDef DMA_Handle;
 
 void USART1_Init(u32 bound)
 {
@@ -21,7 +32,8 @@ void USART1_Init(u32 bound)
     UART1_Handler.Init.Mode = UART_MODE_TX_RX;          //收发模式
     HAL_UART_Init(&UART1_Handler);                      //HAL_UART_Init()会使能UART1
 
-    HAL_UART_Receive_IT(&UART1_Handler, rec_buf, 1);
+	__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_ERR);
+    //HAL_UART_Receive_IT(&UART1_Handler, rec_buf, 1);  // 使用DMA+IDLE中断模式
 }
 
 void USART2_Init(uint32_t bound)
@@ -72,9 +84,15 @@ void USART6_Init(uint32_t bound)
 
     USART6->CR1 |= (1<<11);    //WAKE: 接收器唤醒方式 ==> 地址标记
     USART6->CR2 &= ~0xFF000000;   //地址
-    USART6->CR2 |= 0xC1000000;
+	
+	#if CURRENTCPU == CPU1
+	USART6->CR2 |= 0xC1000000;
+	#else
+	USART6->CR2 |= 0xC2000000;
+	#endif
+    
 	USART6->CR2 |= (1<<4);    //7位地址检测
-    USART6->CR1 |= (1<<13);    //静默模式使能
+    USART6->CR1 |= (1<<13);   //静默模式使能
     USART6->RQR |= (1<<2);
 
     USART6->CR1 |= (1<<0);    //使能USART6
@@ -106,7 +124,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 #if EN_USART1_RX
         HAL_NVIC_EnableIRQ(USART1_IRQn);         //使能USART1中断通道
-        HAL_NVIC_SetPriority(USART1_IRQn, 1, 1); //抢占优先级1，子优先级1
+        HAL_NVIC_SetPriority(USART1_IRQn, 6, 0); //抢占优先级6，子优先级0
 #endif
     }
 
@@ -127,7 +145,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 #if EN_USART2_RX
         HAL_NVIC_EnableIRQ(USART2_IRQn);         //使能USART2中断通道
-        HAL_NVIC_SetPriority(USART2_IRQn, 3, 3); //抢占优先级3，子优先级3
+        HAL_NVIC_SetPriority(USART2_IRQn, 6, 0); //抢占优先级6，子优先级0
 #endif
     }
 
@@ -168,44 +186,91 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
         HAL_GPIO_Init(GPIOC, &GPIO_InitSturct); //初始化PC7
 
 #if EN_USART6_RX
-        HAL_NVIC_EnableIRQ(USART6_IRQn);         //使能USART2中断通道
-        HAL_NVIC_SetPriority(USART6_IRQn, 3, 3); //抢占优先级3，子优先级3
+        //HAL_NVIC_EnableIRQ(USART6_IRQn);         //使能USART6中断通道
+        HAL_NVIC_SetPriority(USART6_IRQn, 6, 0); //抢占优先级6，子优先级0
 #endif
     }
 
 }
 
+void USART1_DMA_Config(void)
+{
+	/*开启DMA时钟*/
+	__HAL_RCC_DMA1_CLK_ENABLE(); //DMA1时钟使能
+	__HAL_RCC_DMA2_CLK_ENABLE(); //DMA2时钟使能
+	
+    //Rx DMA配置
+    DMA_Handle.Instance=DMA2_Stream7;                           //数据流选择
+	DMA_Handle.Init.Request=DMA_REQUEST_USART1_RX;				//USART1发送DMA
+    DMA_Handle.Init.Direction=DMA_PERIPH_TO_MEMORY;             //存储器到外设
+    DMA_Handle.Init.PeriphInc=DMA_PINC_DISABLE;                 //外设非增量模式
+    DMA_Handle.Init.MemInc=DMA_MINC_ENABLE;                     //存储器增量模式
+    DMA_Handle.Init.PeriphDataAlignment=DMA_PDATAALIGN_BYTE;    //外设数据长度:8位
+    DMA_Handle.Init.MemDataAlignment=DMA_MDATAALIGN_BYTE;       //存储器数据长度:8位
+    //DMA_Handle.Init.Mode=DMA_NORMAL;                            //外设流控模式
+	DMA_Handle.Init.Mode=DMA_CIRCULAR;                           //循环模式，数组满后继续从0开始存储
+    DMA_Handle.Init.Priority=DMA_PRIORITY_MEDIUM;               //中等优先级
+    DMA_Handle.Init.FIFOMode=DMA_FIFOMODE_DISABLE;              
+    DMA_Handle.Init.FIFOThreshold=DMA_FIFO_THRESHOLD_FULL;      
+    DMA_Handle.Init.MemBurst=DMA_MBURST_SINGLE;                 //存储器突发单次传输
+    DMA_Handle.Init.PeriphBurst=DMA_PBURST_SINGLE;              //外设突发单次传输
+	
+	HAL_DMA_DeInit(&DMA_Handle);
+    HAL_DMA_Init(&DMA_Handle);
+	
+	__HAL_LINKDMA(&UART1_Handler, hdmarx, DMA_Handle); 
+	
+	HAL_UART_Receive_DMA(&UART1_Handler, RX_BUFF, USART1_RBUFF_SIZE);
+	
+	__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF); 
+	//__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
+}
+
 void USART1_IRQHandler(void)
 {
-    uint32_t timeout = 0;
+	uint32_t ulReturn;
+	//uint8_t  data_length, i;
+	BaseType_t pxHigherPriorityTaskWoken;
 	
-	//printf("USART1_IRQHandler\n");
-
-    HAL_UART_IRQHandler(&UART1_Handler); //调用HAL库中断处理公用函数
-
-    timeout = 0;
-
-    while (HAL_UART_GetState(&UART1_Handler) != HAL_UART_STATE_READY) //等待就绪
-    {
-        timeout++; ////超时处理
-        if (timeout > HAL_MAX_DELAY)
-            break;
-    }
-
-    timeout = 0;
-    while (HAL_UART_Receive_IT(&UART1_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //一次处理完成之后，重新开启中断并设置RxXferCount为1
-    {
-        timeout++; //超时处理
-        if (timeout > HAL_MAX_DELAY)
-            break;
-    }
+	/* 进入临界段 */
+	ulReturn = taskENTER_CRITICAL_FROM_ISR();
+	
+	if((READ_REG(UART1_Handler.Instance->ISR)& USART_ISR_IDLE) != RESET)
+	{
+		__HAL_DMA_DISABLE(&DMA_Handle);      
+		__HAL_DMA_CLEAR_FLAG(&DMA_Handle, DMA_FLAG_TCIF3_7);  
+		
+		//data_length = USART1_RBUFF_SIZE - __HAL_DMA_GET_COUNTER(&DMA_Handle);
+		
+		WRITE_REG(((DMA_Stream_TypeDef *)DMA_Handle.Instance)->NDTR , USART1_RBUFF_SIZE);
+		
+		__HAL_DMA_ENABLE(&DMA_Handle); 
+		
+		xSemaphoreGiveFromISR(BinarySem_Handle, &pxHigherPriorityTaskWoken);
+		
+		PRINTF("Release Sema\n");
+		
+//		printf("data_length = %d\n", data_length);
+		
+//		for(i = 0; i < data_length; i++)
+//		{
+//			xQueueSendFromISR(Test_Queue, &RX_BUFF[i], &pxHigherPriorityTaskWoken);
+//		}
+//		xQueueSendToFrontFromISR(Test_Queue, &data_length, &pxHigherPriorityTaskWoken);
+		
+		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
+		
+		__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF);
+		__HAL_UART_CLEAR_IT(&UART1_Handler, USART_ICR_FECF);    //避免出现帧错误
+	}
+	
+	/* 退出临界段 */
+	taskEXIT_CRITICAL_FROM_ISR(ulReturn);
 }
 
 void USART2_IRQHandler(void)
 {
-    uint32_t timeout = 0;
-
-    //printf("USART2_IRQHandler\n");
+	uint32_t timeout = 0;
 
     HAL_UART_IRQHandler(&UART2_Handler); //调用HAL库中断处理公用函数
 
@@ -332,4 +397,9 @@ int fputc(int ch, FILE *f)
         ; //循环发送,直到发送完毕
     USART6->TDR = (uint8_t)ch;
     return ch;
+}
+
+void nop_printf(const char* str, ...)
+{
+	
 }

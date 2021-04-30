@@ -1,19 +1,20 @@
 #include "RLM300.h"
+#include "config.h"
 
-//¶¨Ê±Çå³ı´æ´¢µÄµã
-#define CLEAR_GAP0      600           //ÊÕµ½Ô¤¸æµãºó¼ÆÊ±1min       CLEAR_GAP0*100ms
-#define CLEAR_GAP1      100            //ÊÕµ½ÕıÏòÂëºó¼ÆÊ±1s            CLEAR_GAP1*2 ms
-/*CLEAR_GAP2 = 1800, Îªµ÷ÊÔ·½±ãĞŞ¸Ä³ÉÈçÏÂ*/
-#define CLEAR_GAP2      100           //ÊÕµ½ÕıÏòÂëºó¼ÆÊ±3min        CLEAR_GAP2*2 ms 
-#define CLEAR_GAP3      70            //ÊÕµ½·´ÏòÂëºó¼ÆÊ±7s             CLEAR_GAP3*2 ms
-#define CLEAR_GAP4      600          //ÊÕµ½·´ÏòÂëºó¼ÆÊ±Êı1min     CLEAR_GAP4*2 ms
+//å®šæ—¶æ¸…é™¤å­˜å‚¨çš„ç‚¹
+#define CLEAR_GAP0      600           //æ”¶åˆ°é¢„å‘Šç‚¹åè®¡æ—¶1min       CLEAR_GAP0*100ms
+#define CLEAR_GAP1      100            //æ”¶åˆ°æ­£å‘ç åè®¡æ—¶1s            CLEAR_GAP1*2 ms
+/*CLEAR_GAP2 = 1800, ä¸ºè°ƒè¯•æ–¹ä¾¿ä¿®æ”¹æˆå¦‚ä¸‹*/
+#define CLEAR_GAP2      100           //æ”¶åˆ°æ­£å‘ç åè®¡æ—¶3min        CLEAR_GAP2*2 ms 
+#define CLEAR_GAP3      70            //æ”¶åˆ°åå‘ç åè®¡æ—¶7s             CLEAR_GAP3*2 ms
+#define CLEAR_GAP4      600          //æ”¶åˆ°åå‘ç åè®¡æ—¶æ•°1min     CLEAR_GAP4*2 ms
 
 uint8_t ledType = 0; 
 
-/*±êÖ¾Î»Ïà¹Ø±äÁ¿*/
-uint8_t flag_NewData = FALSE;    //ÊÇ·ñÊÇĞÂÊı¾İ
-uint8_t flag_Store = END;    //ÊÇ·ñ¿ªÊ¼´æ´¢´®¿ÚÊı¾İ
-uint8_t flag_LedON = END;    //ÊÇ·ñ¿ªÊ¼µãÁÁLED
+/*æ ‡å¿—ä½ç›¸å…³å˜é‡*/
+uint8_t flag_NewData = FALSE;    //æ˜¯å¦æ˜¯æ–°æ•°æ®
+uint8_t flag_Store = END;    //æ˜¯å¦å¼€å§‹å­˜å‚¨ä¸²å£æ•°æ®
+uint8_t flag_LedON = END;    //æ˜¯å¦å¼€å§‹ç‚¹äº®LED
 uint8_t flag_RxFinish = FALSE;
 uint8_t flag_Rx125K = FALSE;
 uint8_t flag_125K_Process_END = FALSE;
@@ -21,61 +22,61 @@ uint8_t clearFlag_YGD = END;
 uint8_t clearFlag_Forward_DD = END;
 uint8_t clearFlag_Rear_DD = END;
 
-/*¶¨Ê±Æ÷Ïà¹Ø±äÁ¿*/
-uint32_t  tLedCount= 0;    //LED¼ÆÊ±¼ÆÊıÆ÷
-uint32_t  tCountYGD  = 0;			   //Ô¤¸æµã¼ÆÊ±¼ÆÊıÆ÷ 
-uint32_t  tCountFD  = 0;			    //ÕıÏò¼ÆÊ±¼ÆÊıÆ÷ 
-uint32_t  tCountRD  = 0;			   //·´Ïò¼ÆÊ±¼ÆÊıÆ÷  
+/*å®šæ—¶å™¨ç›¸å…³å˜é‡*/
+uint32_t  tLedCount= 0;    //LEDè®¡æ—¶è®¡æ•°å™¨
+uint32_t  tCountYGD  = 0;			   //é¢„å‘Šç‚¹è®¡æ—¶è®¡æ•°å™¨ 
+uint32_t  tCountFD  = 0;			    //æ­£å‘è®¡æ—¶è®¡æ•°å™¨ 
+uint32_t  tCountRD  = 0;			   //åå‘è®¡æ—¶è®¡æ•°å™¨  
 uint32_t  tFeedDog = 0;
 
-/*Êı×é¶¨ÒåÇø*/																		
+/*æ•°ç»„å®šä¹‰åŒº*/																		
 uint8_t rxUart1[20];
-uint8_t rxUart1_125K[20];
-uint8_t data_from_125K[20];																	//´®¿Ú0Êı¾İ»º´æÇø, ½ÓÊÕRLM´«ÊäµÄÊı¾İ																	//´®¿Ú1Êı¾İ»º´æÇø
-uint8_t EpcData[12] = {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; //´ÓRLMÖ¡Êı¾İÖĞÌáÈ¡ÓĞÓÃµÄÊı¾İ, E1 -- ÓĞÏß   E0 -- ÎŞÏß
-uint8_t storeFdirYGD[13];																	//´æ´¢ÕıÏòÔ¤¸æµã1
-uint8_t storeFdirYGD2[13];																	//´æ´¢ÕıÏòÔ¤¸æµã2
-uint8_t storeRedirDD[13];																	//´æ´¢·´Ïò¶¨µã
-uint8_t storeLastportdata[13];																//´æ´¢ÉÏ´ÎÉÏ±¨µÄ¶¨µãÊı¾İ
+uint8_t rxUart1_125K[20];                                                                   //ä¸²å£1æ•°æ®ç¼“å­˜åŒº
+uint8_t data_from_125K[20];																	//ä¸²å£0æ•°æ®ç¼“å­˜åŒº, æ¥æ”¶RLMä¼ è¾“çš„æ•°æ®																	
+uint8_t EpcData[12] = {0xBB, 0xE1, 0x0, 0x0, 0x0, 0x0, 0x02, 0x51, 0x32, 0x44, 0x02, 0x53}; //ä»RLMå¸§æ•°æ®ä¸­æå–æœ‰ç”¨çš„æ•°æ®, E1 -- æœ‰çº¿   E0 -- æ— çº¿
+uint8_t storeFdirYGD[13];																	//å­˜å‚¨æ­£å‘é¢„å‘Šç‚¹1
+uint8_t storeFdirYGD2[13];																	//å­˜å‚¨æ­£å‘é¢„å‘Šç‚¹2
+uint8_t storeRedirDD[13];																	//å­˜å‚¨åå‘å®šç‚¹
+uint8_t storeLastportdata[13];																//å­˜å‚¨ä¸Šæ¬¡ä¸ŠæŠ¥çš„å®šç‚¹æ•°æ®
 uint8_t temp[14];
 
 
 /**********************************************************************************************
-* º¯ Êı Ãû £ºDealRxData
-* ¹¦ÄÜËµÃ÷ £º´¦Àí´Ó´®¿Ú0½ÓÊÕµÄÊı¾İ(ÉäÆµÄ£¿é´«ÉÏÀ´µÄÊı¾İ)
-* ÊäÈë²ÎÊı £ºvoid
-* ·µ »Ø Öµ £ºvoid
+* å‡½ æ•° å ï¼šDealRxData
+* åŠŸèƒ½è¯´æ˜ ï¼šå¤„ç†ä»ä¸²å£0æ¥æ”¶çš„æ•°æ®(å°„é¢‘æ¨¡å—ä¼ ä¸Šæ¥çš„æ•°æ®)
+* è¾“å…¥å‚æ•° ï¼švoid
+* è¿” å› å€¼ ï¼švoid
 **********************************************************************************************/
 void Deal_RLM_Data(void)
 {
-	if(DecodeProtocol(rxUart1, EpcData))    //¶ÔRLMµÄÊı¾İ½øĞĞĞ£Ñé£¬Ö»ÓĞÍ¨¹ıĞ£ÑéµÄÊı¾İ²ÅÄÜ½øĞĞÏÂÒ»²½µÄ´¦Àí
+	if(DecodeProtocol(rxUart1, EpcData))    //å¯¹RLMçš„æ•°æ®è¿›è¡Œæ ¡éªŒï¼Œåªæœ‰é€šè¿‡æ ¡éªŒçš„æ•°æ®æ‰èƒ½è¿›è¡Œä¸‹ä¸€æ­¥çš„å¤„ç†
     {
-		RuleCheck(EpcData);
+		//RuleCheck(EpcData);
 	}
 	else
 	{
-		return;    //²»×öÈÎºÎ´¦Àí
+		return;    //ä¸åšä»»ä½•å¤„ç†
 	}
 }
 
 /***************************************************************************************************************
-* º¯ Êı Ãû £ºDecodeProtocol
-* ¹¦ÄÜËµÃ÷ £º¶Ô»ú¸Ğ·¢ËÍ¹ıÀ´µÄÊı¾İ½øĞĞĞ£Ñé ÊÇ·ñÊÇÍêÕûµÄÊı¾İÖ¡ÒÔ¼°Êı¾İÖ¡ÖĞÊÇ·ñ°üº¬EpcÊı¾İ
-* ÊäÈë²ÎÊı £ºp_rxUart1 --> rxUart1   p_EpcData --> EpcData
-* ·µ »Ø Öµ £º1 or 0
+* å‡½ æ•° å ï¼šDecodeProtocol
+* åŠŸèƒ½è¯´æ˜ ï¼šå¯¹æœºæ„Ÿå‘é€è¿‡æ¥çš„æ•°æ®è¿›è¡Œæ ¡éªŒ æ˜¯å¦æ˜¯å®Œæ•´çš„æ•°æ®å¸§ä»¥åŠæ•°æ®å¸§ä¸­æ˜¯å¦åŒ…å«Epcæ•°æ®
+* è¾“å…¥å‚æ•° ï¼šp_rxUart1 --> rxUart1   p_EpcData --> EpcData
+* è¿” å› å€¼ ï¼š1 or 0
 ***************************************************************************************************************/
 uint8_t DecodeProtocol(const uint8_t* p_rxUart1, uint8_t* p_EpcData)
 {
     uint8_t i;
 	const uint8_t* p = p_rxUart1;
 	
-	if((*p++ == 0xAA) && (*(p+*p) == 0x55))    //ÍêÕûµÄÊı¾İÖ¡
+	if((*p++ == 0xAA) && (*(p+*p) == 0x55))    //å®Œæ•´çš„æ•°æ®å¸§
 	{
-		if((p_rxUart1[5]==0xAA) && (p_rxUart1[6] == 0xBB))    //ÊÇAABBÊı¾İ£¿
+		if((p_rxUart1[5]==0xAA) && (p_rxUart1[6] == 0xBB))    //æ˜¯AABBæ•°æ®ï¼Ÿ
 		{
 			for(i= 0; i< 12; i++)
 	        {	
-		        p_EpcData[i]= p_rxUart1[i+6];    //½«´®¿Ú»º´æÇøµÄÓĞĞ§Êı¾İ·Åµ½EpcDataÊı×éÖĞ   
+		        p_EpcData[i]= p_rxUart1[i+6];    //å°†ä¸²å£ç¼“å­˜åŒºçš„æœ‰æ•ˆæ•°æ®æ”¾åˆ°EpcDataæ•°ç»„ä¸­   
 	        }
 			return 1;
 		}
@@ -85,54 +86,58 @@ uint8_t DecodeProtocol(const uint8_t* p_rxUart1, uint8_t* p_EpcData)
 
 
 /************************************************************************************************
-* º¯ Êı Ãû £ºRuleCheck
-* ¹¦ÄÜËµÃ÷£º¶ÔEpcÊı¾İ½øĞĞ¹æÔò¼ì²é Í¨¹ı --> Í¨¹ı´®¿Ú0ÏòÉÏ·¢ËÍÊı¾İ  ²»Í¨¹ı --> ºöÂÔ
-* ÊäÈë²ÎÊı£ºp_EpcData --> EpcData
-* ·µ »Ø Öµ £ºvoid
+* å‡½ æ•° å ï¼šRuleCheck
+* åŠŸèƒ½è¯´æ˜ï¼šå¯¹Epcæ•°æ®è¿›è¡Œè§„åˆ™æ£€æŸ¥ é€šè¿‡ --> é€šè¿‡ä¸²å£0å‘ä¸Šå‘é€æ•°æ®  ä¸é€šè¿‡ --> å¿½ç•¥
+* è¾“å…¥å‚æ•°ï¼šp_EpcData --> EpcData
+* è¿” å› å€¼ ï¼švoid
 ************************************************************************************************/
-void RuleCheck(const uint8_t* p_EpcData)
+void RuleCheck(const uint8_t* p_EpcData, uint8_t* flag)
 {
-	if(p_EpcData[6] == 0x01)    //Èç¹ûÊÇÔ¤¸æµã
+	if(p_EpcData[6] == 0x01)    //å¦‚æœæ˜¯é¢„å‘Šç‚¹
 	{
-		clearFlag_YGD = BEGIN;    //¿ªÆôÔ¤¸æµã¼ÆÊ±Çå0
+		clearFlag_YGD = BEGIN;    //å¼€å¯é¢„å‘Šç‚¹è®¡æ—¶æ¸…0
 		tCountYGD = 0;     
-		/*¼ì²éÔ¤¸æµã£¬ÕıÏòÔ¤¸æµã or ·´ÏòÔ¤¸æµã*/             
+		/*æ£€æŸ¥é¢„å‘Šç‚¹ï¼Œæ­£å‘é¢„å‘Šç‚¹ or åå‘é¢„å‘Šç‚¹*/             
 		check_preportdata(EpcData, storeRedirDD, storeFdirYGD, storeFdirYGD2);
-		//printf("yugaodian \n");
+		PRINTF("yugaodian \n");
 	}
 		 
-	if(p_EpcData[6] == 0x02)    //Èç¹ûÊÇµØ¸Ğ
+	if(p_EpcData[6] == 0x02)    //å¦‚æœæ˜¯åœ°æ„Ÿ
 	{
-		/*¼ì²éµØ¸Ğ£¬ÕıÏò or ·´Ïò  ÉÏ±¨ or ºöÂÔ*/
-		//printf("dingdian \n");
+		/*æ£€æŸ¥åœ°æ„Ÿï¼Œæ­£å‘ or åå‘  ä¸ŠæŠ¥ or å¿½ç•¥*/
+		PRINTF("dingdian \n");
 		if(check_portdata(EpcData, storeFdirYGD, storeFdirYGD2, storeRedirDD, storeLastportdata)) 
 		{
 			//FrameProcess(FrameData, EpcData, 0x11, sizeof(EpcData));       
 			ledType = EpcData[7];
 			flag_LedON = BEGIN;
-			//MPCM_USART1_TransmitFrame(FrameData, 0xC1);    //·¢ËÍ¸øWirelessCom_1 --> Í¨ĞÅ°åµÚÒ»¸öCPU
-			flag_NewData = TRUE;
-			//printf("dingdian ok \n");
+			//MPCM_USART1_TransmitFrame(FrameData, 0xC1);    //å‘é€ç»™WirelessCom_1 --> é€šä¿¡æ¿ç¬¬ä¸€ä¸ªCPU
+			*flag = TRUE;
+			PRINTF("dingdian ok \n");
+		}
+		else
+		{
+			flag = FALSE;
 		}
 	}
 }
 
 /*********************************************************************************************************************************************************
-* º¯ Êı Ãû £ºcheck_preportdata
-* ¹¦ÄÜËµÃ÷£ºÔ¤¸æµãµÄ¼ì²é¹æÔò Óë·´Ïò¶¨µãÖĞµÄÊı¾İ½øĞĞ±È½Ï
-                    Æ¥Åä --> ºöÂÔ  ²»Æ¥Åä --> ´æÈëÕıÏòÔ¤¸æµã
-* ÊäÈë²ÎÊı£ºp_EpcData --> EpcData  p_storeRedirDD --> storeRedirDD  p_storeFdirYGD --> storeFdirYGD  p_storeFdirYGD2 --> storeFdirYGD2
-* ·µ »Ø Öµ £ºvoid
+* å‡½ æ•° å ï¼šcheck_preportdata
+* åŠŸèƒ½è¯´æ˜ï¼šé¢„å‘Šç‚¹çš„æ£€æŸ¥è§„åˆ™ ä¸åå‘å®šç‚¹ä¸­çš„æ•°æ®è¿›è¡Œæ¯”è¾ƒ
+                    åŒ¹é… --> å¿½ç•¥  ä¸åŒ¹é… --> å­˜å…¥æ­£å‘é¢„å‘Šç‚¹
+* è¾“å…¥å‚æ•°ï¼šp_EpcData --> EpcData  p_storeRedirDD --> storeRedirDD  p_storeFdirYGD --> storeFdirYGD  p_storeFdirYGD2 --> storeFdirYGD2
+* è¿” å› å€¼ ï¼švoid
 *********************************************************************************************************************************************************/
 void check_preportdata(uint8_t* p_EpcData, uint8_t* p_storeRedirDD, uint8_t* p_storeFdirYGD, uint8_t* p_storeFdirYGD2)
 {
 	uint8_t i;  
 	uint8_t epc_Code = p_EpcData[10];
 	uint8_t epc_Distance = p_EpcData[8];
-	/*ÅĞ¶ÏÊÇ·ñÊÇÕıÏòÔ¤¸æµã£¬Èç¹ûÊÇÕıÏòµÄÔ¤¸æµã£¬Óë·´Ïò¶¨µãĞÅºÅ»ú±àÂë²»Í¬»ò¾àÀë²»Í¬*/
+	/*åˆ¤æ–­æ˜¯å¦æ˜¯æ­£å‘é¢„å‘Šç‚¹ï¼Œå¦‚æœæ˜¯æ­£å‘çš„é¢„å‘Šç‚¹ï¼Œä¸åå‘å®šç‚¹ä¿¡å·æœºç¼–ç ä¸åŒæˆ–è·ç¦»ä¸åŒ*/
 	if( (p_storeRedirDD[10] != epc_Code) || (p_storeRedirDD[8] != epc_Distance) )	  
 	{   		                                                                
-		/*ÊÇÕıÏòÔ¤¸æµã£¬ÅĞ¶ÏÊÇ·ñÊÇÖØ¸´µÄµã£¬ÈôÖØ¸´£¬ºöÂÔ£¬²»ÖØ¸´´æÈëstoreFdirYGD*/	
+		/*æ˜¯æ­£å‘é¢„å‘Šç‚¹ï¼Œåˆ¤æ–­æ˜¯å¦æ˜¯é‡å¤çš„ç‚¹ï¼Œè‹¥é‡å¤ï¼Œå¿½ç•¥ï¼Œä¸é‡å¤å­˜å…¥storeFdirYGD*/	
 		if( ( (p_storeFdirYGD[10] != epc_Code) || (p_storeFdirYGD[8] != epc_Distance) ) && ( (p_storeFdirYGD2[10] != epc_Code) || (p_storeFdirYGD2[8] != epc_Distance) ) )
 		{
 			for(i= 0; i<12; i++)
@@ -144,26 +149,26 @@ void check_preportdata(uint8_t* p_EpcData, uint8_t* p_storeRedirDD, uint8_t* p_s
 		}
 		else
 		{
-			p_EpcData[10] = 0;    //¹ı·´ÏòĞÅºÅµÆºó£¬³µ×ªÏò£¬µÚÒ»¸öĞÅºÅµÆ»áÒòÎªĞÂ¾ÉÊı¾İµÄÅĞ¶Ï¶ø±»ºöÂÔ²»±¨
+			p_EpcData[10] = 0;    //è¿‡åå‘ä¿¡å·ç¯åï¼Œè½¦è½¬å‘ï¼Œç¬¬ä¸€ä¸ªä¿¡å·ç¯ä¼šå› ä¸ºæ–°æ—§æ•°æ®çš„åˆ¤æ–­è€Œè¢«å¿½ç•¥ä¸æŠ¥
 			p_EpcData[8] = 0;		
 		}
 	}
-	/*ÊÇ·´ÏòµÄÔ¤¸æµã*/
+	/*æ˜¯åå‘çš„é¢„å‘Šç‚¹*/
 	else                            
 	{
-		p_EpcData[10] = 0;	   //¹ı·´ÏòĞÅºÅµÆºó£¬³µ×ªÏò£¬µÚÒ»¸öĞÅºÅµÆ»áÒòÎªĞÂ¾ÉÊı¾İµÄÅĞ¶Ï¶ø±»ºöÂÔ²»±¨   
+		p_EpcData[10] = 0;	   //è¿‡åå‘ä¿¡å·ç¯åï¼Œè½¦è½¬å‘ï¼Œç¬¬ä¸€ä¸ªä¿¡å·ç¯ä¼šå› ä¸ºæ–°æ—§æ•°æ®çš„åˆ¤æ–­è€Œè¢«å¿½ç•¥ä¸æŠ¥   
 		p_EpcData[8] = 0;	
 	}	
 }
 
 /*********************************************************************************************************************************************************
-* º¯ Êı Ãû £ºcheck_portdata
-* ¹¦ÄÜËµÃ÷£ºµØ¸ĞµÄ¼ì²é¹æÔò ÓëÕıÏòÔ¤¸æµãÖĞµÄÊı¾İ½øĞĞ±È½Ï£¬
-                    Æ¥ÅäÇÒ²»ÖØ¸´ --> ¹æÔòÍ¨¹ı 
-					²»Æ¥Åä --> ´æÈë·´Ïò¶¨µã
-* ÊäÈë²ÎÊı£ºp_EpcData --> EpcData  p_storeFdirYGD --> storeFdirYGD  p_storeFdirYGD2 --> storeFdirYGD2  
+* å‡½ æ•° å ï¼šcheck_portdata
+* åŠŸèƒ½è¯´æ˜ï¼šåœ°æ„Ÿçš„æ£€æŸ¥è§„åˆ™ ä¸æ­£å‘é¢„å‘Šç‚¹ä¸­çš„æ•°æ®è¿›è¡Œæ¯”è¾ƒï¼Œ
+                    åŒ¹é…ä¸”ä¸é‡å¤ --> è§„åˆ™é€šè¿‡ 
+					ä¸åŒ¹é… --> å­˜å…¥åå‘å®šç‚¹
+* è¾“å…¥å‚æ•°ï¼šp_EpcData --> EpcData  p_storeFdirYGD --> storeFdirYGD  p_storeFdirYGD2 --> storeFdirYGD2  
                     p_storeRedirDD --> storeRedirDD   p_storeLastportdata --> storeLastportdata
-* ·µ »Ø Öµ £ºÍ¨¹ı-->1 or ²»Í¨¹ı-->0
+* è¿” å› å€¼ ï¼šé€šè¿‡-->1 or ä¸é€šè¿‡-->0
 *********************************************************************************************************************************************************/
 uint8_t check_portdata(uint8_t* p_EpcData, uint8_t* p_storeFdirYGD, uint8_t* p_storeFdirYGD2, uint8_t* p_storeRedirDD, uint8_t* p_storeLastportdata)
 {
@@ -186,53 +191,53 @@ uint8_t check_portdata(uint8_t* p_EpcData, uint8_t* p_storeFdirYGD, uint8_t* p_s
 	// 	printf("%02x ", p_storeFdirYGD2[i]);
 	
 	// printf("\n\r");
-	/*ÅĞ¶ÏÊÇ·ñÊÇÕıÏò¶¨µã*/
+	/*åˆ¤æ–­æ˜¯å¦æ˜¯æ­£å‘å®šç‚¹*/
 	if( (p_storeFdirYGD[10] == epc_Code) && (p_storeFdirYGD[8] == epc_Distance) )
 	{ 
-    	/*ÅĞ¶ÏÊÇ·ñÊÇÏàÍ¬Êı¾İ£¬Èç¹û²»ÊÇ£¬´æÈëstoreLastportdata*/
+    	/*åˆ¤æ–­æ˜¯å¦æ˜¯ç›¸åŒæ•°æ®ï¼Œå¦‚æœä¸æ˜¯ï¼Œå­˜å…¥storeLastportdata*/
 		//printf(" is front dd\n ");
-		if( (p_storeLastportdata[10] != epc_Code) || (p_storeLastportdata[8] != epc_Distance) || (p_storeLastportdata[9] != epc_Led) || (p_storeLastportdata[10] != epc_Code))    //Í¬Ò»¸ö¿¨ºÅÖ»·¢ËÍÒ»´Î  //µÆÂëÏàÍ¬ÊÇ·ñÖØ¸´ÊÕÂë
+		if( (p_storeLastportdata[10] != epc_Code) || (p_storeLastportdata[8] != epc_Distance) || (p_storeLastportdata[9] != epc_Led) || (p_storeLastportdata[10] != epc_Code))    //åŒä¸€ä¸ªå¡å·åªå‘é€ä¸€æ¬¡  //ç¯ç ç›¸åŒæ˜¯å¦é‡å¤æ”¶ç 
         {
 	        for(i= 0; i< 12; i++)
 		    {
 		        p_storeLastportdata[i] = p_EpcData[i];
 		    }
-		    temp = 1;	 //ÉÏ±¨¶¨µã
-			clearFlag_Forward_DD = BEGIN;   	 //¿ªÆô¼ÆÊ±£¬3MINÇå³ıÉÏ´Î´¢´æ¶¨µã
+		    temp = 1;	 //ä¸ŠæŠ¥å®šç‚¹
+			clearFlag_Forward_DD = BEGIN;   	 //å¼€å¯è®¡æ—¶ï¼Œ3MINæ¸…é™¤ä¸Šæ¬¡å‚¨å­˜å®šç‚¹
 			tCountFD = 0;
-			//clearYGDsave = BEGIN;	 //¿ªÆô¼ÆÊ±£¬1sÇå³ıÉÏ´Î´¢´æÔ¤¸æµãºÍ·´ÏòÂë
+			//clearYGDsave = BEGIN;	 //å¼€å¯è®¡æ—¶ï¼Œ1sæ¸…é™¤ä¸Šæ¬¡å‚¨å­˜é¢„å‘Šç‚¹å’Œåå‘ç 
 			//clearflag1 = 0; 	
 		}
-		/*ÊÇÏàÍ¬Êı¾İ£¬ºöÂÔ*/
+		/*æ˜¯ç›¸åŒæ•°æ®ï¼Œå¿½ç•¥*/
 		else    
 		{
 		}		  
     //CheckFeed();         
 	}
 		
-	/*ÅĞ¶ÏÊÇ·ñÊÇÕıÏò¶¨µã£¬ÓëYGD2Æ¥Åä*/
+	/*åˆ¤æ–­æ˜¯å¦æ˜¯æ­£å‘å®šç‚¹ï¼Œä¸YGD2åŒ¹é…*/
 	else if( (p_storeFdirYGD2[10] == epc_Code) && (p_storeFdirYGD2[8] == epc_Distance))
 	{
-	    if( (p_storeLastportdata[10] !=epc_Code ) || (p_storeLastportdata[8] !=epc_Distance) || (p_storeLastportdata[9] !=epc_Led) || (p_storeLastportdata[10] != epc_Code))	    //Í¬Ò»¸ö¿¨ºÅÖ»·¢ËÍÒ»´Î
+	    if( (p_storeLastportdata[10] !=epc_Code ) || (p_storeLastportdata[8] !=epc_Distance) || (p_storeLastportdata[9] !=epc_Led) || (p_storeLastportdata[10] != epc_Code))	    //åŒä¸€ä¸ªå¡å·åªå‘é€ä¸€æ¬¡
 		{
 	        for(i= 0; i< 12; i++)
 		    {
 		        p_storeLastportdata[i]= p_EpcData[i];
 		    }
 		    temp= 1;	
-			clearFlag_Forward_DD = BEGIN;   	 //¿ªÆô¼ÆÊ±£¬3MINÇå³ıÉÏ´Î´¢´æ¶¨µã
+			clearFlag_Forward_DD = BEGIN;   	 //å¼€å¯è®¡æ—¶ï¼Œ3MINæ¸…é™¤ä¸Šæ¬¡å‚¨å­˜å®šç‚¹
 			tCountFD = 0;
 		}
-		else                                                   //ÓëÉÏ´ÎÉÏ±¨¿¨ºÅÏàÍ¬£¬²»ÔÚÉÏ±¨//¼Ó7SÇåÊı¾İ
+		else                                                   //ä¸ä¸Šæ¬¡ä¸ŠæŠ¥å¡å·ç›¸åŒï¼Œä¸åœ¨ä¸ŠæŠ¥//åŠ 7Sæ¸…æ•°æ®
 		{
 		}		
 	//CheckFeed();      
 	}
-	/*ÅĞ¶ÏÎª·´Ïò¶¨µã*/
+	/*åˆ¤æ–­ä¸ºåå‘å®šç‚¹*/
 	else
 	{	
-		/*ÅĞ¶ÏÊÇ·ñÖØ¸´£¬ÈôÖØ¸´£¬´æÈë·´Ïò¶¨µã*/
-		if( (p_storeRedirDD[10] != epc_Code) || (p_storeRedirDD[8] != epc_Distance) )	 //Í¬Ò»¸öµã×÷Îª·´Ïò£¬Ö»´æ´¢1´Î
+		/*åˆ¤æ–­æ˜¯å¦é‡å¤ï¼Œè‹¥é‡å¤ï¼Œå­˜å…¥åå‘å®šç‚¹*/
+		if( (p_storeRedirDD[10] != epc_Code) || (p_storeRedirDD[8] != epc_Distance) )	 //åŒä¸€ä¸ªç‚¹ä½œä¸ºåå‘ï¼Œåªå­˜å‚¨1æ¬¡
 		{
 			for( i= 0; i< 12; i++)
 			{
@@ -247,15 +252,15 @@ uint8_t check_portdata(uint8_t* p_EpcData, uint8_t* p_storeFdirYGD, uint8_t* p_s
 } 
 
 /************************************************************************************************
-* º¯ Êı Ãû £ºTime_up_Clear
-* ¹¦ÄÜËµÃ÷£º¶¨Ê±Ê±¼äµ½£¬°´¹æÔòÇå³ı´æ´¢µÄEpcÊı¾İ
-* ÊäÈë²ÎÊı£ºvoid
-* ·µ »Ø Öµ £ºvoid
+* å‡½ æ•° å ï¼šTime_up_Clear
+* åŠŸèƒ½è¯´æ˜ï¼šå®šæ—¶æ—¶é—´åˆ°ï¼ŒæŒ‰è§„åˆ™æ¸…é™¤å­˜å‚¨çš„Epcæ•°æ®
+* è¾“å…¥å‚æ•°ï¼švoid
+* è¿” å› å€¼ ï¼švoid
 ************************************************************************************************/
 void Time_up_Clear(void)
 {
-	/*ÊÕµ½Ô¤¸æµãºó¿ªÊ¼¶¨Ê±Çå´æ´¢µÄµã*/
-	if(tCountYGD >= CLEAR_GAP0)    //¼ÆÊ±1minºóÇå0
+	/*æ”¶åˆ°é¢„å‘Šç‚¹åå¼€å§‹å®šæ—¶æ¸…å­˜å‚¨çš„ç‚¹*/
+	if(tCountYGD >= CLEAR_GAP0)    //è®¡æ—¶1minåæ¸…0
 	{
 		clearFlag_YGD = END;
 		tCountYGD = 0;
@@ -265,8 +270,8 @@ void Time_up_Clear(void)
 		memset(storeLastportdata, 0, sizeof(storeLastportdata));
 	}
 		
-	/*ÊÕµ½ÕıÏòÂëºó¿ªÊ¼¶¨Ê±Çå´æ´¢µÄµã*/
-	if(tCountFD >= CLEAR_GAP1)    //¼ÆÊ±1sºóÇå0
+	/*æ”¶åˆ°æ­£å‘ç åå¼€å§‹å®šæ—¶æ¸…å­˜å‚¨çš„ç‚¹*/
+	if(tCountFD >= CLEAR_GAP1)    //è®¡æ—¶1såæ¸…0
 	{
 		clearFlag_Rear_DD = END; 
 		tCountRD = 0;
@@ -276,7 +281,7 @@ void Time_up_Clear(void)
 		memset(storeRedirDD, 0, sizeof(storeRedirDD));
 		memset(storeFdirYGD, 0, sizeof(storeFdirYGD));
 		memset(storeFdirYGD2, 0, sizeof(storeFdirYGD2));
-		if(tCountFD >= CLEAR_GAP2)    //¼ÆÊ±3minºóÇå0
+		if(tCountFD >= CLEAR_GAP2)    //è®¡æ—¶3minåæ¸…0
 		{
 			clearFlag_Forward_DD = END;
 			tCountFD = 0;
@@ -285,11 +290,11 @@ void Time_up_Clear(void)
 		}
 	} 
 		
-	/*ÊÕµ½·´ÏòÂëºó¿ªÊ¼¶¨Ê±Çå´æ´¢µÄµã*/
-	if(tCountRD >= CLEAR_GAP3)    //¼ÆÊ±7sºóÇå0
+	/*æ”¶åˆ°åå‘ç åå¼€å§‹å®šæ—¶æ¸…å­˜å‚¨çš„ç‚¹*/
+	if(tCountRD >= CLEAR_GAP3)    //è®¡æ—¶7såæ¸…0
 	{
 		memset(storeRedirDD, 0, sizeof(storeRedirDD));
-		if(tCountRD >= CLEAR_GAP4)    //¼ÆÊ±1minºóÇå0
+		if(tCountRD >= CLEAR_GAP4)    //è®¡æ—¶1minåæ¸…0
 		{
 			clearFlag_Rear_DD = END;
 			tCountRD = 0;
@@ -304,12 +309,12 @@ void Time_up_Clear(void)
 void process_data(const uint8_t* data)
 {
 	// 02 ** ** ** ** 34 34 ** ** ** ** 0d 0a 03
-	// 02 41 41 00 00 00 00 00 00 00 00 0d 0a 03 //  AA 00 -- »ú¸ĞÎÕÊÖÂë
+	// 02 41 41 00 00 00 00 00 00 00 00 0d 0a 03 //  AA 00 -- æœºæ„Ÿæ¡æ‰‹ç 
 	if((data[6] == 0x34) && (((data[2] >= '0') && (data[2] <= '9')) || ((data[2] >= 'A') && (data[2] <= 'F'))))
 	{
-		transfer(0);
+		transfer(data, 0);
 		//ledtype = temp[2];
-		//TWISTART();    //TWI·¢ËÍÊı¾İ
+		//TWISTART();    //TWIå‘é€æ•°æ®
 	}
 	
 	if((data[1] == 0x41) && (data[2] == 0x41) && (data[3] == 0x30) && (data[4] == 0x30) \
@@ -317,29 +322,29 @@ void process_data(const uint8_t* data)
 	&& (data[9] == 0x30) && (data[10] == 0x30) && (data[11] == 0x0d) && (data[12] == 0x0a) \
 	&& (data[13] == 0x03))
 	{
-		transfer(1);
+		transfer(data, 1);
 		//ledtype = 0;
-		//TWISTART();   //TWI·¢ËÍÊı¾İ
+		//TWISTART();   //TWIå‘é€æ•°æ®
 	}
 }
 
-void transfer(uint8_t handshake)
+void transfer(const uint8_t* data, uint8_t handshake)
 {
 	uint8_t i;
 	
 	for(i = 1; i < 11; i++)
 	{
-		if((data_from_125K[i] >= '0') && (data_from_125K[i] <= '9'))
+		if((data[i] >= '0') && (data[i] <= '9'))
 		{
-			temp[i] = data_from_125K[i] - 0x30;
+			temp[i] = data[i] - 0x30;
 		}
-		else if((data_from_125K[i] >= 'A') && (data_from_125K[i] <= 'F'))
+		else if((data[i] >= 'A') && (data[i] <= 'F'))
 		{
-			temp[i] = data_from_125K[i] - 0x37;
+			temp[i] = data[i] - 0x37;
 		}
 		else
 		{
-			temp[i] = data_from_125K[i];
+			temp[i] = data[i];
 		}
 	}
 	
