@@ -412,6 +412,13 @@ static void Queue_Task(void* parameter)
 			//获取当前时间
 			HAL_RTC_GetTime(&RTC_Handler, &RTC_TimeStruct, RTC_FORMAT_BIN);
 			HAL_RTC_GetDate(&RTC_Handler, &RTC_DateStruct, RTC_FORMAT_BIN);
+			
+			if(master_data[2] == 12 && master_data[3] == 0)    // 12:00 ?
+			{
+				//校正RTC时钟
+				RTC_Set_Time(12, 0, 0, 0);
+				RTC_Set_Date(RTC_DateStruct.Year, RTC_DateStruct.Month, RTC_DateStruct.Date, 1);
+			}
 
 			//使用系统时间
 			master_data[2] = (master_data[2] <= 0x17) ? master_data[2] : RTC_TimeStruct.Hours;
@@ -595,7 +602,7 @@ void System_Init(void)
 	
 	#if UPDATE == 1
 	RTC_Set_Time(0, 0, 0, 0);
-	RTC_Set_Date(21, 4, 29, 4);
+	RTC_Set_Date(21, 5, 13, 4);
 	#endif
 
 	HAL_RTC_GetTime(&RTC_Handler, &RTC_TimeStruct, RTC_FORMAT_BIN);

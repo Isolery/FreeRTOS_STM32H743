@@ -52,8 +52,8 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 					pointerdata[0] = ((point[3] << 24) | (point[2] << 16) | (point[1] << 8) | point[0]);
 					pointerdata[1] = ((point[7] << 24) | (point[6] << 16) | (point[5] << 8) | point[4]);
 					
-//					PRINTF("file1point = 0x%04X\n", pointerdata[0]);
-//					PRINTF("file2point = 0x%04X\n", pointerdata[1]);
+					PRINTF("file1point = 0x%04X\n", pointerdata[0]);
+					PRINTF("file2point = 0x%04X\n", pointerdata[1]);
 				}
 				f_close(file1);
 				
@@ -62,11 +62,20 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 
 				cnt = file1point - file2point;
 
-				f_open(file2, FILE_USB, FA_OPEN_ALWAYS|FA_READ|FA_WRITE); 
-				f_open(file1, FILE_NAND, FA_READ|FA_WRITE);
+				//f_open(file2, FILE_USB, FA_OPEN_ALWAYS|FA_READ|FA_WRITE);
+				res = f_open(file2, FILE_USB, FA_OPEN_EXISTING|FA_READ|FA_WRITE);    // 若文件不存在，则打开失败
+				if(res == FR_OK)
+				{
+					// 若文件存在，则在原文件后面继续添加
+					//file2point = file2point;
+				}
+				else
+				{
+					file2point = 0;    // 若文件不存在，则新建文件并从头开始写
+					f_open(file2, FILE_USB, FA_CREATE_NEW|FA_READ|FA_WRITE);
+				}
 				
-//				PRINTF("file1point = 0x%04X\n", pointerdata[0]);
-//				PRINTF("file2point = 0x%04X\n", pointerdata[1]);
+				f_open(file1, FILE_NAND, FA_READ|FA_WRITE);
 				
 				while(cnt--)
 				{
@@ -75,7 +84,7 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 					file2point++;
 					f_read(file1, ReadBuffer, STOREDATA_LEN, &br);
 					f_write(file2, (void*)ReadBuffer, sizeof(ReadBuffer), &wcnt);
-//					PRINTF("cnt = %d\n", cnt);	
+					PRINTF("cnt = %d\n", cnt);	
 				}
 				f_close(file1);
 				f_close(file2);
