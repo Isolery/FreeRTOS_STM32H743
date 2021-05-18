@@ -20,6 +20,7 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 	u8 res=0;
 	uint32_t wcnt;
 	uint32_t cnt;
+	u8 i = 0;
 	char point[8];
 	
 	printf("USBH_UserProcess\n");
@@ -101,6 +102,93 @@ void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
 					}
 				}
 				f_close(file1);									//结束写入
+				
+				//////////////////////////////////////////////////////////////////////////////////////
+				
+				#if COORDINATE == 1    // 是否将U盘中的坐标信息保存到NandFlash
+				
+				res = f_open(file2, FILE_USB_CORD, FA_OPEN_EXISTING|FA_READ|FA_WRITE);    // 若文件不存在，则打开失败
+				if(res == FR_OK)
+				{
+					PRINTF("FILE_USB_CORD open success...\n");
+					
+					file1point = 1;
+					file2point = 1;
+					
+					res = f_open(file1,(const TCHAR*)FILE_NAND_CORD, FA_CREATE_ALWAYS|FA_READ|FA_WRITE); 	//总是创建新文件
+					
+					if(res == FR_OK)
+					{
+						PRINTF("FILE_NAND_CORD open success...\n");
+					}
+					
+					// copy FILE_USB_CORD to FILE_NAND_CORD...
+					while(1)
+					{
+						f_read(file2, ReadBuffer, COORDINATE_LEN, &br);
+						
+						printf("br = %d\n", br);
+							
+						if(br != 0)
+						{
+							f_write(file1, (void*)ReadBuffer, COORDINATE_LEN, &wcnt);
+							
+							f_lseek(file1, file1point*COORDINATE_LEN);
+							f_lseek(file2, file2point*COORDINATE_LEN);
+							
+							file1point++;    
+							file2point++;    
+							
+							for(i = 0; i < COORDINATE_LEN; i++)
+							{
+								PRINTF("%c", ReadBuffer[i]);
+							}
+							PRINTF("\n");
+						}
+						else
+						{
+							break;
+						}	
+					}
+					
+					f_close(file1);
+					f_close(file2);
+				}
+				
+				file1point = 1;
+				
+				//test
+				//while(1)
+				f_open(file1,(const TCHAR*)FILE_NAND_CORD, FA_READ|FA_WRITE);
+				
+				while(1)
+				{	
+					f_read(file1, ReadBuffer, COORDINATE_LEN, &br);
+					
+					if(br != 0)
+					{
+						f_lseek(file1, file1point*COORDINATE_LEN);
+						
+						file1point++;
+						
+						for(cnt = 0; cnt < COORDINATE_LEN; cnt++)
+						{
+							PRINTF("%c", ReadBuffer[cnt]);
+						}
+						PRINTF("\n");
+						
+					}
+					else
+					{
+						break;
+					}	
+				}
+				
+				f_close(file1);
+				
+				#endif
+				
+				/////////////////////////////////////////////////////////////////////////////////////////
 
             }
             else
@@ -168,8 +256,8 @@ void App_Init(void)
 	
 	printf("connect...\n");	
 	
-	USBH_Init(&hUSBHost, USBH_UserProcess, 0);
-    USBH_RegisterClass(&hUSBHost, USBH_MSC_CLASS);
-    USBH_Start(&hUSBHost);
-    HAL_PWREx_EnableUSBVoltageDetector();
+//	USBH_Init(&hUSBHost, USBH_UserProcess, 0);
+//    USBH_RegisterClass(&hUSBHost, USBH_MSC_CLASS);
+//    USBH_Start(&hUSBHost);
+//    HAL_PWREx_EnableUSBVoltageDetector();
 }

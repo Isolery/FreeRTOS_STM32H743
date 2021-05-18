@@ -6,9 +6,10 @@
 #include "config.h"
 
 extern SemaphoreHandle_t BinarySem_Handle;
-//extern QueueHandle_t Test_Queue;
+extern SemaphoreHandle_t UART2_BinarySem_Handle;
 
-uint8_t  RX_BUFF[USART1_RBUFF_SIZE] = {0};
+uint8_t  RX1_BUFF[USART1_RBUFF_SIZE] = {0};
+uint8_t  RX2_BUFF[USART2_RBUFF_SIZE] = {0};
 
 uint8_t rec_buf[1];
 uint16_t rec16[1];
@@ -19,6 +20,7 @@ UART_HandleTypeDef UART3_Handler; //UART3句柄
 UART_HandleTypeDef UART6_Handler; //UART6句柄
 
 DMA_HandleTypeDef DMA_Handle;
+DMA_HandleTypeDef DMA1_Handle;
 
 void USART1_Init(u32 bound)
 {
@@ -48,7 +50,9 @@ void USART2_Init(uint32_t bound)
     UART2_Handler.Init.Mode = UART_MODE_TX_RX;          //收发模式
     HAL_UART_Init(&UART2_Handler);                      //HAL_UART_Init()会使能UART2
 
-    HAL_UART_Receive_IT(&UART2_Handler, rec_buf, 1);
+	__HAL_UART_ENABLE_IT(&UART2_Handler, UART_IT_ERR);
+	
+    //HAL_UART_Receive_IT(&UART2_Handler, rec_buf, 1);
 }
 
 void USART3_Init(uint32_t bound)
@@ -220,9 +224,43 @@ void USART1_DMA_Config(void)
 	
 	__HAL_LINKDMA(&UART1_Handler, hdmarx, DMA_Handle); 
 	
-	HAL_UART_Receive_DMA(&UART1_Handler, RX_BUFF, USART1_RBUFF_SIZE);
+	HAL_UART_Receive_DMA(&UART1_Handler, RX1_BUFF, USART1_RBUFF_SIZE);
 	
 	__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_IDLEF); 
+	//__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
+}
+
+void USART2_DMA_Config(void)
+{
+	/*开启DMA时钟*/
+	__HAL_RCC_DMA1_CLK_ENABLE(); //DMA1时钟使能
+	__HAL_RCC_DMA2_CLK_ENABLE(); //DMA2时钟使能
+	
+    //Rx DMA配置
+    DMA1_Handle.Instance=DMA1_Stream7;                           //数据流选择
+	DMA1_Handle.Init.Request=DMA_REQUEST_USART2_RX;				//USART2接收DMA
+    DMA1_Handle.Init.Direction=DMA_PERIPH_TO_MEMORY;             //存储器到外设
+    DMA1_Handle.Init.PeriphInc=DMA_PINC_DISABLE;                 //外设非增量模式
+    DMA1_Handle.Init.MemInc=DMA_MINC_ENABLE;                     //存储器增量模式
+    DMA1_Handle.Init.PeriphDataAlignment=DMA_PDATAALIGN_BYTE;    //外设数据长度:8位
+    DMA1_Handle.Init.MemDataAlignment=DMA_MDATAALIGN_BYTE;       //存储器数据长度:8位
+    //DMA_Handle.Init.Mode=DMA_NORMAL;                            //外设流控模式
+	DMA1_Handle.Init.Mode=DMA_CIRCULAR;                           //循环模式，数组满后继续从0开始存储
+    DMA1_Handle.Init.Priority=DMA_PRIORITY_MEDIUM;               //中等优先级
+    DMA1_Handle.Init.FIFOMode=DMA_FIFOMODE_DISABLE;              
+    DMA1_Handle.Init.FIFOThreshold=DMA_FIFO_THRESHOLD_FULL;      
+    DMA1_Handle.Init.MemBurst=DMA_MBURST_SINGLE;                 //存储器突发单次传输
+    DMA1_Handle.Init.PeriphBurst=DMA_PBURST_SINGLE;              //外设突发单次传输
+	
+	HAL_DMA_DeInit(&DMA1_Handle);
+    HAL_DMA_Init(&DMA1_Handle);
+	
+	__HAL_LINKDMA(&UART2_Handler, hdmarx, DMA1_Handle); 
+	
+	HAL_UART_Receive_DMA(&UART2_Handler, RX2_BUFF, USART2_RBUFF_SIZE);
+	
+	__HAL_UART_CLEAR_IT(&UART2_Handler, UART_CLEAR_IDLEF); 
+	
 	//__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
 }
 
@@ -264,32 +302,81 @@ void USART1_IRQHandler(void)
 		__HAL_UART_CLEAR_IT(&UART1_Handler, USART_ICR_FECF);    //避免出现帧错误
 	}
 	
+	if((READ_REG(UART1_Handler.Instance->ISR)& USART_ISR_ORE) != RESET)
+	{ 
+		__HAL_UART_CLEAR_IT(&UART1_Handler, UART_CLEAR_OREF);
+	}
+	
+	if((READ_REG(UART1_Handler.Instance->ISR)& USART_ISR_FE) != RESET)
+	{
+		__HAL_UART_CLEAR_IT(&UART1_Handler, USART_ICR_FECF); 
+	}
+	
 	/* 退出临界段 */
 	taskEXIT_CRITICAL_FROM_ISR(ulReturn);
 }
 
 void USART2_IRQHandler(void)
 {
-	uint32_t timeout = 0;
+	uint32_t ulReturn;
+//	uint8_t  data_length, i;
+	BaseType_t pxHigherPriorityTaskWoken;
+	
+	/* 进入临界段 */
+	ulReturn = taskENTER_CRITICAL_FROM_ISR();
+	
+	//PRINTF("UART2_Handler.Instance->CR1 = %08X\n", UART2_Handler.Instance->CR1);
+	//PRINTF("UART2_Handler.Instance->ISR = %08X\n", UART2_Handler.Instance->ISR);
 
-    HAL_UART_IRQHandler(&UART2_Handler); //调用HAL库中断处理公用函数
+	if((READ_REG(UART2_Handler.Instance->ISR)& USART_ISR_IDLE) != RESET)
+	{
+		__HAL_DMA_DISABLE(&DMA1_Handle);      
+		__HAL_DMA_CLEAR_FLAG(&DMA1_Handle, DMA_FLAG_TCIF3_7);  
+		
+//		data_length = USART2_RBUFF_SIZE - __HAL_DMA_GET_COUNTER(&DMA1_Handle);
+		
+		WRITE_REG(((DMA_Stream_TypeDef *)DMA1_Handle.Instance)->NDTR , USART2_RBUFF_SIZE);
+		
+		__HAL_DMA_ENABLE(&DMA1_Handle); 
+		
+		xSemaphoreGiveFromISR(UART2_BinarySem_Handle, &pxHigherPriorityTaskWoken);
+		
+		PRINTF("Release Sema\n");
+		
+//		printf("data_length = %d\n", data_length);
+//		
+//		for(i = 0; i < data_length; i++)
+//		{
+//			printf("%c", RX2_BUFF[i]);
+//		}
+//		printf("\n");
+		
+		portYIELD_FROM_ISR(pxHigherPriorityTaskWoken);
+		
+		__HAL_UART_CLEAR_IT(&UART2_Handler, UART_CLEAR_IDLEF);
+		//__HAL_UART_CLEAR_IT(&UART2_Handler, USART_ICR_FECF);    //避免出现帧错误
+	}
+	
+	if((READ_REG(UART2_Handler.Instance->ISR)& USART_ISR_ORE) != RESET)  // ORE错误
+	{ 
+		PRINTF("ORE Error!\n");
+		__HAL_UART_CLEAR_IT(&UART2_Handler, UART_CLEAR_OREF);
+	}
+	
+	if((READ_REG(UART2_Handler.Instance->ISR)& USART_ISR_FE) != RESET)  // FE错误
+	{
+		PRINTF("FE Error!\n");
+		__HAL_UART_CLEAR_IT(&UART2_Handler, UART_CLEAR_FEF); 
+	}
+	
+	if((READ_REG(UART2_Handler.Instance->ISR)& USART_ISR_NE) != RESET)  // NE错误
+	{
+		PRINTF("NE Error!\n");
+		__HAL_UART_CLEAR_IT(&UART2_Handler, UART_CLEAR_NEF); 
+	}
 
-    timeout = 0;
-
-    while (HAL_UART_GetState(&UART2_Handler) != HAL_UART_STATE_READY) //等待就绪
-    {
-        timeout++; ////超时处理
-        if (timeout > HAL_MAX_DELAY)
-            break;
-    }
-
-    timeout = 0;
-    while (HAL_UART_Receive_IT(&UART2_Handler, (uint8_t *)rec_buf, 1) != HAL_OK) //一次处理完成之后，重新开启中断并设置RxXferCount为1
-    {
-        timeout++; //超时处理
-        if (timeout > HAL_MAX_DELAY)
-            break;
-    }
+	/* 退出临界段 */
+	taskEXIT_CRITICAL_FROM_ISR(ulReturn);
 }
 
 void USART3_IRQHandler(void)

@@ -13,19 +13,42 @@
 #include "stmflash.h"
 #include "config.h"
 #include "RLM300.h"
-#include "DTU.h"
+//#include "DTU.h"
 
 extern FIL *file1;	  		//文件1
 extern FIL *file2;	  		//文件2
 
-extern uint8_t RX_BUFF[USART1_RBUFF_SIZE];
+extern uint8_t RX1_BUFF[USART1_RBUFF_SIZE];
+extern uint8_t RX2_BUFF[USART2_RBUFF_SIZE];
+
+uint16_t tLimt_rxTime = 0;
+volatile static uint8_t countRx2;
+uint8_t failue = 0;
 
 uint8_t FrameData[20] = {0xAA, 0x11}; 
+//char  rxUart2[10];
 uint8_t rxUart6[10];
 uint8_t master_data[5];
 //[2021/04/29 14:43:05]021128449920C100
 uint8_t storedata[STOREDATA_LEN] = {'[','2','0','2','1','/','0','3','/','2','4',' ','1','4',':','2','5',':','1','5',']','0','2','5','3','3','2','4','4','0','2','5','3','0','0','1','1','\r','\n'};
 
+const char* cfg[14] = {
+	"AT+ENTERCFG\r\n",        // 进入配置
+ 	"AT+SET=1,loc.starcart.cn\r\n",    // NTRIP Caster域名或IP
+	"AT+SET=2,2101\r\n",               // NTRIP Caster端口
+	"AT+SET=3,1\r\n",                  // NTRIP类型[1:Client/2:Server] 
+	"AT+SET=4,abc234567\r\n",          // NTRIP账号
+	"AT+SET=5,123456\r\n",             // NTRIP密码
+	"AT+SET=6,\r\n",                   // 挂载点[1:RTCM32_GGB/2:RTCM30_GG]
+	"AT+SET=7,NETRTK32\r\n",           // 自定义挂载点
+	"AT+SET=8,2\r\n",                  // 数据源[0:无/1:COM1/2:COM2]
+	"AT+SET=9,124.70.191.189\r\n",     // 数据中心2域名或IP
+	"AT+SET=10,22\r\n",                 // 数据中心2端口
+	"AT+SET=11,N\r\n",                  // 中心2连接mServer[Y/N]
+	"AT+SET=12,1\r\n",                  // 中心2数据源[0:无/1:COM1/2:COM2]
+	"AT+EXITCFG\r\n"          // 离开配置
+}; 	
+	
 static void System_Init(void);
 static void AppTaskCreate(void);
 static void LowPriority_Task(void* pvParameters);   
@@ -33,8 +56,10 @@ static void ReceiveFromMachineSensor_Task(void* pvParameters);
 static void ProcessData_Task(void* pvParameters);
 static void StoreData_Task(void* pvParameters);
 static void Queue_Task(void* pvParameters);
-static void Swtmr1_Callback(void* parameter);
-static void Send_Task(void* parameter);
+static void Swtmr1_Callback(void* pvParameters);
+static void Send_Task(void* pvParameters);
+static void DTU_Task(void* pvParameters);
+static void Communication_Task(void* pvParameters);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
@@ -44,10 +69,13 @@ static TaskHandle_t ProcessData_Task_Handle = NULL;
 static TaskHandle_t StoreData_Task_Handle = NULL;
 static TaskHandle_t Queue_Task_Handle = NULL;				
 static TaskHandle_t Send_Task_Handle = NULL;	
+static TaskHandle_t DTU_Task_Handle = NULL;		
+static TaskHandle_t Communication_Task_Handle = NULL;	
 
 //二值信号量句柄
 SemaphoreHandle_t BinarySem_Handle = NULL;
 SemaphoreHandle_t Send_BinarySem_Handle = NULL;
+SemaphoreHandle_t UART2_BinarySem_Handle = NULL;
 
 //消息队列任务句柄
 static QueueHandle_t Data_Queue = NULL;
@@ -107,6 +135,10 @@ static void AppTaskCreate(void)
 	Send_BinarySem_Handle = xSemaphoreCreateBinary();
 	if(Send_BinarySem_Handle != NULL)
 		printf("Send_BinarySem_Handle Create Success...\n");
+	
+	UART2_BinarySem_Handle = xSemaphoreCreateBinary();
+	if(UART2_BinarySem_Handle != NULL)
+		printf("UART2_BinarySem_Handle Create Success...\n");
 	
 	/* 创建消息队列Data_Queue */
 	Data_Queue = xQueueCreate((UBaseType_t) Data_LEN,    // 消息队列的长度
@@ -190,6 +222,26 @@ static void AppTaskCreate(void)
 						  (TaskHandle_t*   )&Send_Task_Handle);    // 任务控制块指针  							  
 	if(pdPASS == xReturn)               
 		printf("Send_Task Create Success...\n");
+	
+	/* 创建DTU_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )DTU_Task,             // 任务函数
+	                      (const char*     )"DTU_Task",           // 任务名称
+						  (uint16_t        )512,                        // 任务堆栈大小
+						  (void*           )NULL,                       // 传递给任务函数的参数
+						  (UBaseType_t     )2,                          // 任务优先级
+						  (TaskHandle_t*   )&DTU_Task_Handle);    // 任务控制块指针  							  
+	if(pdPASS == xReturn)               
+		printf("DTU_Task Create Success...\n");
+	
+	/* 创建Communication_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )Communication_Task,             // 任务函数
+	                      (const char*     )"Communication_Task",           // 任务名称
+						  (uint16_t        )512,                        // 任务堆栈大小
+						  (void*           )NULL,                       // 传递给任务函数的参数
+						  (UBaseType_t     )2,                          // 任务优先级
+						  (TaskHandle_t*   )&Communication_Task_Handle);    // 任务控制块指针  							  
+	if(pdPASS == xReturn)               
+		printf("Communication_Task Create Success...\n");
 
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 	
@@ -198,21 +250,134 @@ static void AppTaskCreate(void)
 	taskEXIT_CRITICAL();                  //退出临界区
 }
 
-static void LowPriority_Task(void* param)
+static void LowPriority_Task(void* pvParameters)
 {
 	__HAL_UART_ENABLE_IT(&UART1_Handler, UART_IT_IDLE);  
+	__HAL_UART_ENABLE_IT(&UART2_Handler, UART_IT_IDLE);  
 	HAL_NVIC_EnableIRQ(USART6_IRQn);  
 	
 	for(;;)
 	{
-		USBH_Process(&hUSBHost);
+		//USBH_Process(&hUSBHost);
 		Time_up_Clear();
 		vTaskDelay(1);
 	}
 }
 
+// 对DTU进行配置，若配置成功，将该任务挂起
+static void DTU_Task(void* pvParameters)
+{
+	BaseType_t xReturn = pdPASS;
+	int i;
+	
+	memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));    //清除缓存数组
+	
+	for(;;)
+	{
+		while(1)
+		{
+			for(i = 0; i < 14; i++)
+			{
+				USART2_TransmitString(cfg[i]);
+				PRINTF("%s\n", cfg[i]);
+				//xReturn = xSemaphoreTake(UART2_BinarySem_Handle, portMAX_DELAY);
+				xReturn = xSemaphoreTake(UART2_BinarySem_Handle, 10000);    // 10s内没有返回值则不再等待
+				
+				if(xReturn == pdPASS)
+				{
+					if ((strstr((const char *)RX2_BUFF, "OK") != NULL))
+					{
+						PRINTF("rc OK!\n");
+						memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));
+						continue;
+					}
+					else
+					{
+						memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));
+						break;
+					}
+				}
+				else
+				{
+					break;
+				}
+			}
+			if(i == 14) break;
+		}
+		
+		PRINTF("DTU Config OK, Suspend now...\n");
+		
+		xReturn = xTaskNotifyGive(Communication_Task_Handle);                                  // 任务通知
+		vTaskSuspend(DTU_Task_Handle);    // 若配置成功, 则挂起该任务
+		
+		vTaskDelay(100);
+	}
+}
+
+// 与服务器进行通讯
+void Communication_Task(void* pvParameters)
+{
+	BaseType_t xReturn = pdPASS;
+	const char *stationcode = "014469014469\r\n";
+	int i;
+	
+	for(;;)
+	{
+		// 获取任务通知 ,没获取到则一直等待
+		ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+		
+		PRINTF("Communication_Task Event Get Success...\n");
+		
+		// 与TCP服务器建立联系
+		while(1)
+		{
+			xReturn = xSemaphoreTake(UART2_BinarySem_Handle, 1000);
+		
+			if(xReturn == pdPASS)
+			{
+				if ((strstr((const char *)RX2_BUFF, "CNT") != NULL))
+				{
+					memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));
+					USART2_TransmitString("OK\n");
+					break;
+				}
+				else
+				{
+					memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));
+					continue;
+				}
+			}
+			else
+			{
+				USART2_TransmitString(stationcode);
+				PRINTF("%s\n", stationcode);
+			}
+		}
+		
+		// 接下来开始下载数据
+		while(1)
+		{
+			xReturn = xSemaphoreTake(UART2_BinarySem_Handle, portMAX_DELAY);
+			
+			if(xReturn == pdPASS)
+			{
+				for(i = 0; i < sizeof(RX2_BUFF); i++)
+				{
+					PRINTF("%c", RX2_BUFF[i]);
+				}
+				PRINTF("\n");
+			}
+			memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));    
+			
+			vTaskDelay(1);
+		}
+		
+		//vTaskDelay(1);
+	}
+}
+
 // 通过DMA+IDLE的方式接收来自机感的原始数据
-static void ReceiveFromMachineSensor_Task(void* parameter)
+static void ReceiveFromMachineSensor_Task(void* pvParameters)
 {
 	BaseType_t xReturn = pdPASS;
 	uint32_t i = 0;
@@ -228,11 +393,11 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 			PRINTF("RX_BUFF: ");
 			for(i = 0; i < 25; i++)
 			{
-				PRINTF("%02X ", RX_BUFF[i]);
-				raw_data[i] = RX_BUFF[i];
+				PRINTF("%02X ", RX1_BUFF[i]);
+				raw_data[i] = RX1_BUFF[i];
 			}
 			PRINTF("\n");
-			memset((uint8_t*)RX_BUFF, 0, 25);
+			memset((uint8_t*)RX1_BUFF, 0, 25);
 				
 			if(raw_data[0] == 0x02)    // 125K数据
 			{
@@ -289,7 +454,7 @@ static void ReceiveFromMachineSensor_Task(void* parameter)
 	}
 }
 
-static void ProcessData_Task(void* parameter)
+static void ProcessData_Task(void* pvParameters)
 {
 	BaseType_t xReturn = pdTRUE;
 	uint32_t recv_data;
@@ -384,7 +549,7 @@ static void ProcessData_Task(void* parameter)
 	}
 }
 
-static void Queue_Task(void* parameter)
+static void Queue_Task(void* pvParameters)
 {
 	BaseType_t xReturn = pdPASS;
 	EventBits_t r_event;
@@ -470,7 +635,7 @@ static void Queue_Task(void* parameter)
 	}
 }
 
-static void StoreData_Task(void* parameter)
+static void StoreData_Task(void* pvParameters)
 {
 	BaseType_t xReturn = pdPASS;
 	uint32_t *recv;
@@ -555,7 +720,7 @@ static void StoreData_Task(void* parameter)
 	}
 }
 
-void Send_Task(void* parameter)
+void Send_Task(void* pvParameters)
 {
   BaseType_t xReturn = pdPASS;
 	for(;;)
@@ -586,9 +751,18 @@ void System_Init(void)
 	Stm32_Clock_Init(160,5,2,4);  		    // 系统时钟频率选择400MHz
 	delay_init(400);
 	RTC_Init(); 
-	USART6_Init(115200);
-	USART1_Init(9600);
+	
+	USART3_Init(115200);    // 串口3用作TCP接口
+	USART2_Init(115200);
+	USART1_Init(9600);      // 串口1用作机感接口
+	
+	USART6_Init(115200);    // 串口6用作与信息处理板通信接口
+	
 	USART1_DMA_Config();  
+	USART2_DMA_Config();    
+	
+	
+	
 	my_mem_init(SRAMIN);		    		//初始化内部内存池	
 
 	NAND_Init();
@@ -654,10 +828,16 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 										  // 分：00,01,02,...,3B
 		}
 	}
+	
+//	if (huart->Instance == USART2) //信息处理板, 通过地址访问CPU
+//	{
+//		
+//		rxUart2[countRx2++] = rec_buf[0]; 
+//	}
 }
 
 // 100ms进入一次
-static void Swtmr1_Callback(void* parameter)
+static void Swtmr1_Callback(void* pvParameters)
 {		
 	if (flag_LedON == BEGIN)
 		tLedCount++; //LED开始定时熄灭
