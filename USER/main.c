@@ -26,13 +26,17 @@ volatile static uint8_t countRx2;
 uint8_t failue = 0;
 
 uint8_t FrameData[20] = {0xAA, 0x11}; 
-//char  rxUart2[10];
+char rxUart3[100] = "$GPGGA,025636.00,3903.4740753,N,11704.6213610,E,5,8,1.0,22.980,M,-5.893,M,1.0,1996*5B";   //串口3数据缓存区，接收gps_data定位信息
 uint8_t rxUart6[10];
 uint8_t master_data[5];
+char gps_data[20];
 //[2021/04/29 14:43:05]021128449920C100
 uint8_t storedata[STOREDATA_LEN] = {'[','2','0','2','1','/','0','3','/','2','4',' ','1','4',':','2','5',':','1','5',']','0','2','5','3','3','2','4','4','0','2','5','3','0','0','1','1','\r','\n'};
 
-const char* cfg[14] = {
+char coordinate_data[SUMDATA][32] = {0};	  // 存放地面点的坐标信息
+
+#define CFG_NUM    14
+const char* cfg[CFG_NUM] = {
 	"AT+ENTERCFG\r\n",        // 进入配置
  	"AT+SET=1,loc.starcart.cn\r\n",    // NTRIP Caster域名或IP
 	"AT+SET=2,2101\r\n",               // NTRIP Caster端口
@@ -47,10 +51,12 @@ const char* cfg[14] = {
 	"AT+SET=11,N\r\n",                  // 中心2连接mServer[Y/N]
 	"AT+SET=12,1\r\n",                  // 中心2数据源[0:无/1:COM1/2:COM2]
 	"AT+EXITCFG\r\n"          // 离开配置
-}; 	
-	
+}; 
+
 static void System_Init(void);
+static void cutString(char* dst);	
 static void AppTaskCreate(void);
+static int compare_data(const char *pgps);   
 static void LowPriority_Task(void* pvParameters);   
 static void ReceiveFromMachineSensor_Task(void* pvParameters);  
 static void ProcessData_Task(void* pvParameters);
@@ -60,6 +66,7 @@ static void Swtmr1_Callback(void* pvParameters);
 static void Send_Task(void* pvParameters);
 static void DTU_Task(void* pvParameters);
 static void Communication_Task(void* pvParameters);
+static void Receive_gps_data_Task(void* pvParameters);
 
 //创建任务句柄
 static TaskHandle_t AppTaskCreate_Handle = NULL;
@@ -71,11 +78,13 @@ static TaskHandle_t Queue_Task_Handle = NULL;
 static TaskHandle_t Send_Task_Handle = NULL;	
 static TaskHandle_t DTU_Task_Handle = NULL;		
 static TaskHandle_t Communication_Task_Handle = NULL;	
+static TaskHandle_t Receive_gps_data_Task_Handle = NULL;
 
 //二值信号量句柄
 SemaphoreHandle_t BinarySem_Handle = NULL;
 SemaphoreHandle_t Send_BinarySem_Handle = NULL;
 SemaphoreHandle_t UART2_BinarySem_Handle = NULL;
+SemaphoreHandle_t UART3_BinarySem_Handle = NULL;
 
 //消息队列任务句柄
 static QueueHandle_t Data_Queue = NULL;
@@ -139,6 +148,10 @@ static void AppTaskCreate(void)
 	UART2_BinarySem_Handle = xSemaphoreCreateBinary();
 	if(UART2_BinarySem_Handle != NULL)
 		printf("UART2_BinarySem_Handle Create Success...\n");
+
+	UART3_BinarySem_Handle = xSemaphoreCreateBinary();
+	if(UART3_BinarySem_Handle != NULL)
+		printf("UART3_BinarySem_Handle Create Success...\n");
 	
 	/* 创建消息队列Data_Queue */
 	Data_Queue = xQueueCreate((UBaseType_t) Data_LEN,    // 消息队列的长度
@@ -243,6 +256,16 @@ static void AppTaskCreate(void)
 	if(pdPASS == xReturn)               
 		printf("Communication_Task Create Success...\n");
 
+	/* 创建Receive_gps_data_Task任务 */
+	xReturn = xTaskCreate((TaskFunction_t  )Receive_gps_data_Task,             // 任务函数
+	                      (const char*     )"Receive_gps_data_Task",           // 任务名称
+						  (uint16_t        )512,                        // 任务堆栈大小
+						  (void*           )NULL,                       // 传递给任务函数的参数
+						  (UBaseType_t     )2,                          // 任务优先级
+						  (TaskHandle_t*   )&Receive_gps_data_Task_Handle);    // 任务控制块指针  							  
+	if(pdPASS == xReturn)               
+		printf("Receive_gps_data_Task Create Success...\n");	
+
 	vTaskDelete(AppTaskCreate_Handle);    //删除AppTaskCreate任务
 	
 	printf("============RTOS Start============\n");
@@ -276,7 +299,7 @@ static void DTU_Task(void* pvParameters)
 	{
 		while(1)
 		{
-			for(i = 0; i < 14; i++)
+			for(i = 0; i < CFG_NUM; i++)
 			{
 				USART2_TransmitString(cfg[i]);
 				PRINTF("%s\n", cfg[i]);
@@ -319,8 +342,11 @@ void Communication_Task(void* pvParameters)
 {
 	BaseType_t xReturn = pdPASS;
 	const char *stationcode = "014469014469\r\n";
-	int i;
-	
+	int i, j;
+	const char* pFront;
+	const char* pNext;
+	int index;
+
 	for(;;)
 	{
 		// 获取任务通知 ,没获取到则一直等待
@@ -338,7 +364,7 @@ void Communication_Task(void* pvParameters)
 				if ((strstr((const char *)RX2_BUFF, "CNT") != NULL))
 				{
 					memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));
-					USART2_TransmitString("OK\n");
+					USART2_TransmitString("OK\r\n");
 					break;
 				}
 				else
@@ -357,22 +383,64 @@ void Communication_Task(void* pvParameters)
 		// 接下来开始下载数据
 		while(1)
 		{
+			USART2_TransmitString("READY\r\n");
+
 			xReturn = xSemaphoreTake(UART2_BinarySem_Handle, portMAX_DELAY);
 			
 			if(xReturn == pdPASS)
 			{
-				for(i = 0; i < sizeof(RX2_BUFF); i++)
+				pFront = strstr((const char*)RX2_BUFF, "N");
+
+				while(pFront != NULL)
 				{
-					PRINTF("%c", RX2_BUFF[i]);
-				}
-				PRINTF("\n");
+					index = my_atoi(pFront+1, 4);
+					pNext = pFront + 5;
+					coordinate_data[index][22] = *pNext;
+					pFront = strstr(pNext, "N");
+				}	
 			}
-			memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));    
+			
+			memset(RX2_BUFF, '\0', sizeof(RX2_BUFF));   
+
+			for(i = 0; i < 100; i++)
+			{
+				for(j = 0; j < 31; j++)
+				{
+					printf("%c", coordinate_data[i][j]);
+				}
+				printf("\n");
+			}		
 			
 			vTaskDelay(1);
 		}
 		
 		//vTaskDelay(1);
+	}
+}
+
+// 接收gps_data数据
+static void Receive_gps_data_Task(void* pvParameters)
+{
+	BaseType_t xReturn = pdPASS;
+	int i;
+
+	for(;;)
+	{
+		xReturn = xSemaphoreTake(UART3_BinarySem_Handle, portMAX_DELAY);
+
+		if(xReturn == pdPASS)
+		{
+			cutString(rxUart3);  //提取字符串，去掉','和'.' 取经纬度小数点后6位(cm级精度)
+			
+			for (i = 0; i < strlen(gps_data); i++)
+			{
+				printf("%c", gps_data[i]);
+			}
+			printf("\n");
+			memset(rxUart3, '\0', sizeof(rxUart3));
+			printf("--compare start--\n");
+			compare_data(gps_data);    //将处理后的GGA信息与数据库中地面点的定位数据进行比较，若匹配成功，则提取该信息中的灯状态
+		}
 	}
 }
 
@@ -509,6 +577,19 @@ static void ProcessData_Task(void* pvParameters)
 		{
 			RuleCheck(data, &flag);
 			PRINTF("flag = %d\n", flag);
+		}
+		else if(data[0] == 0xEE)    // 无线数据
+		{
+			PRINTF("Wireless Data...\n");
+			
+			EpcData[6]  = data[1];
+			EpcData[7]  = data[2];
+			EpcData[8]  = data[3];
+			EpcData[9]  = data[4];
+			EpcData[10] = data[5];
+			EpcData[11] = data[6];
+
+			flag = TRUE;
 		}
 		
 		if(flag == TRUE)    // 125K数据处理完成或900M数据通过校验
@@ -761,8 +842,6 @@ void System_Init(void)
 	USART1_DMA_Config();  
 	USART2_DMA_Config();    
 	
-	
-	
 	my_mem_init(SRAMIN);		    		//初始化内部内存池	
 
 	NAND_Init();
@@ -784,6 +863,7 @@ void System_Init(void)
 	
 	printf("[20%02d/%02d/%02d] %02d:%02d:%02d\n", RTC_DateStruct.Year, RTC_DateStruct.Month, RTC_DateStruct.Date, RTC_TimeStruct.Hours, RTC_TimeStruct.Minutes, RTC_TimeStruct.Seconds);
 
+	copy_from_nand();
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
@@ -794,7 +874,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		volatile static uint8_t countRx, storeflag;
 		BaseType_t xHigherPriorityTaskWoken;
 		
-	
 		temp = rec_buf[0];
 
 		#if CURRENTCPU == CPU1
@@ -829,11 +908,26 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 		}
 	}
 	
-//	if (huart->Instance == USART2) //信息处理板, 通过地址访问CPU
-//	{
-//		
-//		rxUart2[countRx2++] = rec_buf[0]; 
-//	}
+	if (huart->Instance == USART3) //信息处理板, 通过地址访问CPU
+	{
+		//接收gps_data数据后与数据库中的地址进行匹配, 若匹配成功提取灯信息
+		volatile static uint8_t temp, countRx;
+		BaseType_t xHigherPriorityTaskWoken;
+
+		temp = rec_buf[0];
+
+		if (temp == '\n')
+		{
+			rxUart3[countRx++] = temp;
+			countRx = 0;
+			
+			xSemaphoreGiveFromISR(UART3_BinarySem_Handle, &xHigherPriorityTaskWoken);
+			portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+
+			return;
+		}
+		rxUart3[countRx++] = temp;
+	}
 }
 
 // 100ms进入一次
@@ -852,4 +946,91 @@ static void Swtmr1_Callback(void* pvParameters)
 		tCountRD++;
 
 	tLimt_rxTime++; //接收时长限制
+}
+
+void cutString(char* dst)
+{
+	memset(gps_data, '\0', sizeof(gps_data));
+	if(strncmp(dst, "$GPGGA", 6) == 0 && (strstr(dst, ",E,5") != NULL))
+	{
+		gps_data[0]  = dst[17];
+		gps_data[1]  = dst[18];
+		gps_data[2]  = dst[19];
+		gps_data[3]  = dst[20];
+		gps_data[4]  = dst[22];
+		gps_data[5]  = dst[23];
+		gps_data[6]  = dst[24];
+		gps_data[7]  = dst[25];
+		gps_data[8]  = dst[26];
+		gps_data[9]  = dst[32];
+		gps_data[10] = dst[33];
+		gps_data[11] = dst[34];
+		gps_data[12] = dst[35];
+		gps_data[13] = dst[36];
+		gps_data[14] = dst[38];
+		gps_data[15] = dst[39];
+		gps_data[16] = dst[40];
+		gps_data[17] = dst[41];
+		gps_data[18] = dst[42];
+	}
+}
+
+int compare_data(const char *pgps)   
+{
+	char (*pdata)[32] = (char(*)[32])coordinate_data;  
+	char *p1 = (char *)pdata;
+	const char *p2 = pgps;
+	int len = SUMDATA;
+	int i = 0;
+	uint8_t  data_length = 7;
+	uint8_t data_flag = 0xEE;    // 0xEE代表无线数据
+	
+	uint8_t compareData[6];    //匹配成功后的数据 
+	char *getdata; 
+	//while((*p1 != '\0') || len--)
+	while(len--)
+	{
+		do
+		{
+			if(*p2 == '\0') 
+			{
+				PRINTF("comare ok\n");    //compare ok!
+				PRINTF("%d\n", i);
+				my_strcpy(getdata, p1);  
+				str2HEX(getdata, compareData);  //将字符串025132440253转换成0x02, 0x51, 0x32, 0x44, 0x02, 0x53存放在compareData中
+				
+				// EpcData[6] = compareData[0];
+				// EpcData[7] = compareData[1];
+				// EpcData[8] = compareData[2];
+				// EpcData[9] = compareData[3];
+				// EpcData[10] = compareData[4];
+				// EpcData[11] = compareData[5];
+				
+				//flag_NewData = TRUE;
+				
+				PRINTF("%02X ", compareData[0]);
+				PRINTF("%02X ", compareData[1]);
+				PRINTF("%02X ", compareData[2]);
+				PRINTF("%02X ", compareData[3]);
+				PRINTF("%02X ", compareData[4]);
+				PRINTF("%02X ", compareData[5]);
+				PRINTF("\n");
+
+				xQueueSendToFront(Data_Queue, &data_length, 0);
+				xQueueSend(Data_Queue, &data_flag, 0);
+				for(i = 0; i < data_length - 1; i++)
+				{
+					xQueueSend(Data_Queue, &compareData[i], 0);
+				}
+				
+				return 0;
+			}	
+		} while (*(p1++) == *(p2++));  
+		p1 = (char *)(pdata+(SUMDATA-len));
+		p2 = pgps;
+		i++;
+	}
+
+	PRINTF("comare failed\n");	
+	return 1;
 }

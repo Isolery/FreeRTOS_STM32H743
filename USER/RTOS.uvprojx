@@ -1050,13 +1050,4 @@
     <files/>
   </RTE>
 
-  <LayerInfo>
-    <Layers>
-      <Layer>
-        <LayName>RTOS</LayName>
-        <LayPrjMark>1</LayPrjMark>
-      </Layer>
-    </Layers>
-  </LayerInfo>
-
 </Project>

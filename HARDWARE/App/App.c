@@ -12,6 +12,8 @@ uint32_t file2point = 0;
 
 uint32_t pointerdata[2] = {0x0, 0x0};    // flashdata[0] = datacnt, flashdata[1] = storecnt;
 
+extern char coordinate_data[SUMDATA][FM_LEN];	  // 存放地面点的坐标信息
+
 uint8_t res=0;
 
 void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
@@ -261,3 +263,145 @@ void App_Init(void)
 //    USBH_Start(&hUSBHost);
 //    HAL_PWREx_EnableUSBVoltageDetector();
 }
+
+// 将NandFlash里面存放的定位点信息拷贝到RAM中
+void copy_from_nand(void)
+{
+	//N00003903474071180462136025132440253
+	const char *pFront;
+	//const char *pNext;
+	char (*p)[32] = (char(*)[32])coordinate_data;    //
+	int index;
+	uint8_t res = 0;
+	uint32_t br = 0;
+	uint32_t i = 0, j = 0;
+	//pFront = strstr(databuff, "N");
+
+	res = f_open(file1,(const TCHAR*)FILE_NAND_CORD, FA_READ|FA_WRITE);
+
+	file1point = 1;
+
+	if(res == FR_OK)
+	{
+		while(1)
+		{	
+			f_read(file1, ReadBuffer, COORDINATE_LEN, &br);
+			
+			if(br != 0)
+			{
+				f_lseek(file1, file1point*COORDINATE_LEN);
+				file1point++;
+				
+				pFront = strstr((const char *)ReadBuffer, "N");
+				if(pFront != NULL)
+				{
+					index = my_atoi(pFront+1, 4);    //提取二维数组的行坐标0000
+					p+=index;
+					my_strncpy(p, pFront+5);    //将数据3903474071180462136025132440253存放到datastore数组中
+					p = coordinate_data;
+				}	
+			}
+			else
+			{
+				break;
+			}	
+		}
+	}
+	else
+	{
+		return;
+	}	
+	
+	f_close(file1);
+	
+	printf("Show All Data...\n");
+
+	for(i = 0; i < SUMDATA; i++)
+	{
+		for(j = 0; j < FM_LEN - 1; j++)
+		{
+			printf("%c", coordinate_data[i][j]);
+		}
+		printf("\n");
+	}
+}
+
+int my_atoi(const char *str, char len)
+{
+	int value = 0;
+
+	while(len--)
+	{
+		if(*str>='0' && *str<='9')
+		{
+			value *= 10;
+			value += *str - '0';
+			str++;
+		}
+	}
+	return value;
+}
+
+const char* my_strncpy(char (*dst)[32], const char *src)
+{
+	int i = 0;
+	while((*src != '#'))
+	{
+		*(*(dst)+i) = *(src++);   //*(*(p+i)+j)
+		i++;
+	}
+	*(*(dst)+i) = '\0';
+	
+	return src;
+}
+
+char *my_strcpy(char *dst, const char *src)
+{
+	char *ret = dst;
+
+	while ((*dst++=*src++) != '#');
+
+	*(dst++) = '\0';
+
+	return ret;
+}
+
+uint8_t str2HEX(char *src, uint8_t *dst)
+{
+   	uint8_t i=0, j=1;
+	uint8_t byte = 0;
+	char *ptr = src;
+	uint8_t count = 0;
+	
+	while(*ptr != '\0')
+	//while(*ptr != '#')
+	{
+		if(count == 2)
+		{
+			dst[i++] = byte;
+			byte = 0;
+			j = 1;
+			count = 0;
+		}
+		else
+		{
+				if(*ptr >= 'a' && *ptr <= 'f')
+					byte += (*ptr - '0'-39)*(16%(16+j)+16/(16+j));
+				else if(*ptr >= 'A' && *ptr <= 'F')
+					byte += (*ptr - '0'-7)*(16%(16+j)+16/(16+j));
+			    else if((*ptr >='0') && (*ptr <= '9'))
+					byte += (*ptr - '0')*(16%(16+j)+16/(16+j));
+				if(j--<=0) j = 1;
+				ptr++;
+				count++;
+		}
+
+		if(*ptr == '\0')//最后一字节
+		//if(*ptr == '#')//最后一字节
+		{
+			dst[i++] = byte;
+		}
+	}
+	
+	return i;
+ }

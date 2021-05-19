@@ -170,7 +170,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef *huart)
 
 #if EN_USART3_RX
         HAL_NVIC_EnableIRQ(USART3_IRQn);         //使能USART2中断通道
-        HAL_NVIC_SetPriority(USART3_IRQn, 3, 3); //抢占优先级3，子优先级3
+        HAL_NVIC_SetPriority(USART3_IRQn, 6, 0); //抢占优先级3，子优先级3
 #endif
     }
 
