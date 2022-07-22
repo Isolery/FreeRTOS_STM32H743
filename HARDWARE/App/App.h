@@ -29,5 +29,10 @@ extern uint32_t pointerdata[2];    // flashdata[0] = datacnt, flashdata[1] = sto
 
 void App_Init(void);
 void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id);
+const char* my_strncpy(char (*dst)[32], const char *src);
+int my_atoi(const char *str, char len);
+void copy_from_nand(void);
+uint8_t str2HEX(char *src, uint8_t *dst);
+char *my_strcpy(char *dst, const char *src);
 
 #endif

@@ -53,7 +53,7 @@
           <CreateExecutable>1</CreateExecutable>
           <CreateLib>0</CreateLib>
           <CreateHexFile>1</CreateHexFile>
-          <DebugInformation>0</DebugInformation>
+          <DebugInformation>1</DebugInformation>
           <BrowseInformation>0</BrowseInformation>
           <ListingPath>..\OBJ\</ListingPath>
           <HexFormatSelection>1</HexFormatSelection>
@@ -339,7 +339,7 @@
               <MiscControls></MiscControls>
               <Define>USE_HAL_DRIVER, STM32H743xx,USE_USB_FS,HAL_RTC_MODULE_ENABLED</Define>
               <Undefine></Undefine>
-              <IncludePath>..\CORE;..\USER;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\USMART;..\MALLOC;..\HARDWARE\MPU;..\HARDWARE\NAND;..\FATFS\exfuns;..\FATFS\source;..\TEXT;..\USB\USB_APP;..\USB\STM32_USB_Host_Library\Class\MSC\Inc;..\USB\STM32_USB_Host_Library\Core\Inc;..\HARDWARE\CRC;..\HARDWARE\DMA;..\HARDWARE\DTU;..\HARDWARE\RLM300;..\HARDWARE\String;..\SYSTEM\timer;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\HARDWARE\RTC;..\HARDWARE\STMFLASH;..\FreeRTOS\Source\include;..\FreeRTOS\Source\portable\RVDS\ARM_CM7\r0p1;..\HARDWARE\App;..\HARDWARE\Queue</IncludePath>
+              <IncludePath>..\CORE;..\USER;..\SYSTEM\delay;..\SYSTEM\sys;..\SYSTEM\usart;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\USMART;..\MALLOC;..\HARDWARE\MPU;..\HARDWARE\NAND;..\FATFS\exfuns;..\FATFS\source;..\TEXT;..\USB\USB_APP;..\USB\STM32_USB_Host_Library\Class\MSC\Inc;..\USB\STM32_USB_Host_Library\Core\Inc;..\HARDWARE\CRC;..\HARDWARE\DMA;..\HARDWARE\RLM300;..\HARDWARE\String;..\SYSTEM\timer;..\HALLIB\STM32H7xx_HAL_Driver\Inc;..\HARDWARE\RTC;..\HARDWARE\STMFLASH;..\FreeRTOS\Source\include;..\FreeRTOS\Source\portable\RVDS\ARM_CM7\r0p1;..\HARDWARE\App;..\HARDWARE\Queue;..\HARDWARE\DTU</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -947,11 +947,6 @@
               <FileName>rtc.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\HARDWARE\RTC\rtc.c</FilePath>
-            </File>
-            <File>
-              <FileName>DTU.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\HARDWARE\DTU\DTU.c</FilePath>
             </File>
           </Files>
         </Group>

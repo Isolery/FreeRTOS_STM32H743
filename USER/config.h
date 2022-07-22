@@ -5,16 +5,21 @@
 
 #define DSQUEUE_SIZE    10
 #define STOREDATA_LEN   39
+#define COORDINATE_LEN  39
+#define SUMDATA  1000
+#define FM_LEN   32
+
 
 #define CPU1   1
 
 #define CPU2   2
 
 //手动配置项
-#define CURRENTCPU   CPU1         // 当前工作的CPU
-#define ERASE      0              // 1: 清除NandFlash和config.txt
-#define DEBUG      1              // 1: 打印调试信息
-#define UPDATE     1              // 1: 重新设置RTC时间
+#define CURRENTCPU   CPU2           // 当前工作的CPU
+#define ERASE        0              // 1: 清除NandFlash和config.txt
+#define DEBUG        1              // 1: 打印调试信息
+#define UPDATE       0              // 1: 重新设置RTC时间
+#define COORDINATE   0              // 1: 坐标
 
 #if DEBUG == 1
 #define PRINTF printf
@@ -25,11 +30,17 @@
 #define FILE_CFG     "0:/config.txt"
 
 #if CURRENTCPU == CPU1
-#define FILE_NAND    "0:/data1.txt"
-#define FILE_USB     "1:/data1.txt"
+#define FILE_NAND       "0:/data1.txt"
+#define FILE_USB        "1:/data1.txt"
+#define FILE_USB_CORD   "1:/coordinate1.txt"
+#define FILE_NAND_CORD  "0:/coordinate1.txt"
+
 #else
-#define FILE_NAND    "0:/data2.txt"
-#define FILE_USB     "1:/data2.txt"
+#define FILE_NAND       "0:/data2.txt"
+#define FILE_USB        "1:/data2.txt"
+#define FILE_USB_CORD   "1:/coordinate2.txt"
+#define FILE_NAND_CORD  "0:/coordinate2.txt"
+
 #endif
 
 #endif

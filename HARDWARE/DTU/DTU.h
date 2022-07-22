@@ -14,6 +14,8 @@ extern uint8_t rxend;
 extern uint32_t cntData;
 extern char rxUart2[20];
 
+extern const char* cfg[12];
+
 uint8_t DTU_Configuration(void);
 void Connect_to_Server(void);
 
